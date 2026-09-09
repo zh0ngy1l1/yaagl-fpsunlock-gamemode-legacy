@@ -23,6 +23,10 @@ import {
   ModalOverlay,
   Progress,
   ProgressIndicator,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
 } from "@hope-ui/solid";
 import { Accessor, For, JSXElement, Show, createSignal } from "solid-js";
 import { createGameInstallationDirectorySanitizer } from "../accidental-complexity";
@@ -405,8 +409,9 @@ export async function createHoyoplayLauncher({
     }
 
     function actionLabel(game: GameState) {
-      if (game.client.installState() !== "INSTALLED") return "Get Game";
-      if (!game.client.updateRequired()) return "Start Game";
+      if (game.client.installState() !== "INSTALLED")
+        return locale.get("INSTALL");
+      if (!game.client.updateRequired()) return locale.get("LAUNCH");
       const sizeBytes = game.client.updateSizeBytes?.() ?? 0;
       if (sizeBytes <= 0) return locale.get("UPDATE");
       const speedBps = estimatedSpeedBps();
@@ -481,203 +486,250 @@ export async function createHoyoplayLauncher({
           />
         </Show>
 
-        <aside class="hoyoplay-game-rail">
-          <button class="hoyoplay-orbit-button" aria-label="HoYoPlay">
-            <span />
-          </button>
-          <div class="hoyoplay-game-icons">
-            <For each={games}>
-              {(game, index) => (
-                <button
-                  classList={{
-                    "hoyoplay-game-icon": true,
-                    active: selectedGameIndex() === index(),
-                  }}
-                  aria-label={game.title}
-                  onClick={() => selectGame(index())}
-                >
-                  <img
-                    src={game.client.uiContent.iconImage ?? game.fallbackIcon}
-                    alt=""
-                  />
-                  <span
-                    classList={{
-                      "hoyoplay-installed-dot": true,
-                      installed: game.client.installState() === "INSTALLED",
-                    }}
-                  />
-                </button>
-              )}
-            </For>
-          </div>
-        </aside>
+        <Show when={selectedGame().client.uiContent.logo}>
+          <img
+            class="hoyoplay-game-logo"
+            src={selectedGame().client.uiContent.logo}
+            alt={selectedGame().title}
+          />
+        </Show>
+
+        <nav
+          class="hoyoplay-game-picker"
+          aria-label={locale.get("SETTING_GAME")}
+        >
+          <For each={games}>
+            {(game, index) => (
+              <button
+                classList={{
+                  "hoyoplay-game-choice": true,
+                  active: selectedGameIndex() === index(),
+                }}
+                aria-label={game.title}
+                aria-pressed={selectedGameIndex() === index()}
+                title={game.title}
+                onClick={() => selectGame(index())}
+              >
+                <img src={game.fallbackIcon} alt="" />
+                <span>{game.title}</span>
+              </button>
+            )}
+          </For>
+        </nav>
 
         <main class="hoyoplay-stage" aria-label={selectedGame().title}>
-          <div class="hoyoplay-top-actions">
-            <button
-              class="hoyoplay-icon-button"
-              aria-label="Open official page"
-              onClick={() => open(selectedGame().client.uiContent.url)}
-            >
-              <span class="hoyoplay-link-icon" />
-            </button>
-            <button
-              class="hoyoplay-icon-button"
-              aria-label="Settings"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <span class="hoyoplay-settings-icon" />
-            </button>
-          </div>
-        </main>
-
-        <section class="hoyoplay-action-area">
-          <Show when={programBusy()}>
-            <div class="hoyoplay-progress">
-              <strong>
-                {statusText()}
-                {downloadEta() ? ` — ETA ${downloadEta()}` : ""}
-              </strong>
-              <Progress
-                value={progress()}
-                indeterminate={progress() === 0}
-                size="sm"
-                borderRadius={8}
-              >
-                <ProgressIndicator
-                  style={"transition: none;"}
+          <section
+            class="hoyoplay-action-area"
+            classList={{
+              "hoyoplay-action-left":
+                selectedGame().client.uiContent.launchButtonLocation === "left",
+            }}
+          >
+            <div class="hoyoplay-progress" role="status" aria-live="polite">
+              <Show when={programBusy()}>
+                <strong>
+                  {statusText()}
+                  {downloadEta() ? ` — ETA ${downloadEta()}` : ""}
+                </strong>
+                <Progress
+                  value={progress()}
+                  indeterminate={progress() === 0}
+                  size="sm"
                   borderRadius={8}
-                />
-              </Progress>
-            </div>
-          </Show>
-          <Show
-            when={
-              selectedGame().client.showPredownloadPrompt() && !programBusy()
-            }
-          >
-            <button class="hoyoplay-secondary-button" onClick={onPredownload}>
-              Pre-download {selectedGame().client.predownloadVersion()}
-            </button>
-          </Show>
-          <button
-            class="hoyoplay-primary-button"
-            disabled={programBusy()}
-            onClick={() => onPrimaryAction().catch(fatal)}
-          >
-            <span
-              classList={{
-                "hoyoplay-action-icon": true,
-                download: selectedGame().client.installState() !== "INSTALLED",
-              }}
-            />
-            <span class="hoyoplay-action-copy">
-              <span>{actionLabel(selectedGame())}</span>
-              <small>{selectedInstallLabel()}</small>
-            </span>
-          </button>
-          <button
-            class="hoyoplay-menu-button"
-            aria-label="Settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <span class="hoyoplay-menu-icon" />
-          </button>
-        </section>
-
-        <Modal opened={settingsOpen()} onClose={() => setSettingsOpen(false)}>
-          <ModalOverlay />
-          <ModalContent width={620} maxWidth={620}>
-            <ModalCloseButton />
-            <ModalHeader>{selectedGame().title}</ModalHeader>
-            <ModalBody>
-              <label class="hoyoplay-setting-row">
-                <span>Wine</span>
-                <select
-                  value={selectedGame().wineTag()}
-                  onInput={event =>
-                    selectedGame().setWineTag(event.currentTarget.value)
-                  }
                 >
-                  <For each={selectedGame().wineOptions}>
-                    {item => (
-                      <option value={item.tag}>{item.displayName}</option>
-                    )}
-                  </For>
-                </select>
-              </label>
-              <p class="hoyoplay-settings-muted">
-                Shared uses the launcher Wine. Per-game selections are cached
-                under{" "}
-                <code>Application Support/{appSupportName}/hoyoplay-wines</code>{" "}
-                and still use the shared <code>wineprefix</code>.
-              </p>
-              <label class="hoyoplay-setting-row">
-                <span>Renderer</span>
-                <select
-                  value={selectedGame().renderer()}
-                  onInput={event =>
-                    selectedGame().setRenderer(
-                      event.currentTarget.value as HoyoplayRenderer
-                    )
-                  }
-                >
-                  <option value={HOYOPLAY_RENDERER_DXMT}>DXMT</option>
-                  <option value={HOYOPLAY_RENDERER_D3DMETAL}>
-                    D3DMetal (experimental)
-                  </option>
-                </select>
-              </label>
-              <Show
-                when={selectedGame().renderer() === HOYOPLAY_RENDERER_D3DMETAL}
-              >
-                <p class="hoyoplay-settings-muted">
-                  D3DMetal is downloaded automatically on first launch and
-                  applied only to per-game Wine, so the shared YAAGL Wine stays
-                  compatible with older launchers. Cached under{" "}
-                  <code>
-                    Application Support/{appSupportName}/hoyoplay-renderers
-                  </code>
-                  .
-                </p>
+                  <ProgressIndicator
+                    style={"transition: none;"}
+                    borderRadius={8}
+                  />
+                </Progress>
               </Show>
+            </div>
+            <div class="hoyoplay-launch-panel">
+              <button
+                class="hoyoplay-version-link"
+                aria-label={selectedGame().title}
+                onClick={() => open(selectedGame().client.uiContent.url)}
+              >
+                <Show
+                  when={selectedGame().client.uiContent.iconImage}
+                  fallback={selectedGame().title}
+                >
+                  <img
+                    src={selectedGame().client.uiContent.iconImage}
+                    alt={selectedGame().title}
+                  />
+                </Show>
+              </button>
               <Show
-                when={selectedGame().fpsSupported}
-                fallback={
-                  <p class="hoyoplay-settings-muted">
-                    FPS unlock is not wired for this game yet.
-                  </p>
+                when={
+                  selectedGame().client.showPredownloadPrompt() &&
+                  !programBusy()
                 }
               >
-                <label class="hoyoplay-setting-row">
-                  <span>FPS unlock</span>
-                  <input
-                    type="checkbox"
-                    checked={selectedGame().fpsEnabled()}
-                    onInput={event =>
-                      selectedGame().setFpsEnabled(event.currentTarget.checked)
-                    }
-                  />
-                </label>
-                <label class="hoyoplay-setting-row">
-                  <span>Target FPS</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={selectedGame().fpsTarget()}
-                    onInput={event =>
-                      selectedGame().setFpsTarget(event.currentTarget.value)
-                    }
-                  />
-                </label>
-                <p class="hoyoplay-settings-muted">
-                  Off keeps DXMT at upstream 60 FPS. On sets DXMT when the DXMT
-                  renderer is active, and always applies the game unlock method.
-                </p>
+                <div class="hoyoplay-predownload">
+                  <button onClick={onPredownload}>
+                    {locale.format("PREDOWNLOAD_READY", [
+                      selectedGame().client.predownloadVersion(),
+                    ])}
+                  </button>
+                </div>
               </Show>
+              <Show when={selectedGame().fpsSupported}>
+                <button
+                  class="hoyoplay-fps-summary"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  {locale.get("SETTING_FPS_UNLOCK")}:{" "}
+                  {selectedGame().fpsEnabled()
+                    ? `${selectedGame().fpsTarget()} FPS`
+                    : locale.get("SETTING_FPS_UNLOCK_DEFAULT")}
+                </button>
+              </Show>
+              <div class="hoyoplay-button-group">
+                <Button
+                  class="hoyoplay-launch-button"
+                  size="xl"
+                  disabled={programBusy()}
+                  onClick={() => onPrimaryAction().catch(fatal)}
+                  title={selectedInstallLabel()}
+                >
+                  {actionLabel(selectedGame())}
+                </Button>
+                <Button
+                  class="hoyoplay-settings-button"
+                  size="xl"
+                  aria-label={locale.get("SETTING")}
+                  title={locale.get("SETTING")}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <span class="hoyoplay-settings-icon" aria-hidden="true">
+                    ⚙
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <Modal
+          opened={settingsOpen()}
+          onClose={() => setSettingsOpen(false)}
+          scrollBehavior="inside"
+        >
+          <ModalOverlay />
+          <ModalContent
+            class="hoyoplay-settings-modal"
+            width={760}
+            maxWidth="calc(100vw - 32px)"
+          >
+            <ModalCloseButton />
+            <ModalHeader>
+              {locale.get("SETTING")} · {selectedGame().title}
+            </ModalHeader>
+            <ModalBody>
+              <Tabs orientation="vertical" class="hoyoplay-settings-tabs">
+                <TabList>
+                  <Tab>{locale.get("SETTING_GAME")}</Tab>
+                  <Tab>Wine</Tab>
+                </TabList>
+                <TabPanel>
+                  <Show
+                    when={selectedGame().fpsSupported}
+                    fallback={
+                      <p class="hoyoplay-settings-muted">
+                        FPS unlock is not wired for this game yet.
+                      </p>
+                    }
+                  >
+                    <label class="hoyoplay-setting-row">
+                      <span>{locale.get("SETTING_FPS_UNLOCK")}</span>
+                      <input
+                        type="checkbox"
+                        checked={selectedGame().fpsEnabled()}
+                        onInput={event =>
+                          selectedGame().setFpsEnabled(
+                            event.currentTarget.checked
+                          )
+                        }
+                      />
+                    </label>
+                    <label class="hoyoplay-setting-row">
+                      <span>Target FPS</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={selectedGame().fpsTarget()}
+                        onInput={event =>
+                          selectedGame().setFpsTarget(event.currentTarget.value)
+                        }
+                      />
+                    </label>
+                    <p class="hoyoplay-settings-muted">
+                      The numeric target is saved for this game. Launching
+                      applies the selected FPS unlock setting.
+                    </p>
+                  </Show>
+                </TabPanel>
+                <TabPanel>
+                  <label class="hoyoplay-setting-row">
+                    <span>Wine</span>
+                    <select
+                      value={selectedGame().wineTag()}
+                      onInput={event =>
+                        selectedGame().setWineTag(event.currentTarget.value)
+                      }
+                    >
+                      <For each={selectedGame().wineOptions}>
+                        {item => (
+                          <option value={item.tag}>{item.displayName}</option>
+                        )}
+                      </For>
+                    </select>
+                  </label>
+                  <p class="hoyoplay-settings-muted">
+                    Shared uses the launcher Wine. Per-game selections are
+                    cached under{" "}
+                    <code>
+                      Application Support/{appSupportName}/hoyoplay-wines
+                    </code>{" "}
+                    and still use the shared <code>wineprefix</code>.
+                  </p>
+                  <label class="hoyoplay-setting-row">
+                    <span>Renderer</span>
+                    <select
+                      value={selectedGame().renderer()}
+                      onInput={event =>
+                        selectedGame().setRenderer(
+                          event.currentTarget.value as HoyoplayRenderer
+                        )
+                      }
+                    >
+                      <option value={HOYOPLAY_RENDERER_DXMT}>DXMT</option>
+                      <option value={HOYOPLAY_RENDERER_D3DMETAL}>
+                        D3DMetal (experimental)
+                      </option>
+                    </select>
+                  </label>
+                  <Show
+                    when={
+                      selectedGame().renderer() === HOYOPLAY_RENDERER_D3DMETAL
+                    }
+                  >
+                    <p class="hoyoplay-settings-muted">
+                      D3DMetal is downloaded automatically on first launch and
+                      applied only to per-game Wine, so the shared YAAGL Wine
+                      stays compatible with older launchers. Cached under{" "}
+                      <code>
+                        Application Support/{appSupportName}/hoyoplay-renderers
+                      </code>
+                      .
+                    </p>
+                  </Show>
+                </TabPanel>
+              </Tabs>
             </ModalBody>
-            <ModalFooter gap="$3">
+            <ModalFooter class="hoyoplay-settings-footer" gap="$3">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -685,7 +737,8 @@ export async function createHoyoplayLauncher({
                   openNativeSettings(selectedGame());
                 }}
               >
-                Advanced YAAGL Settings
+                YAAGL · {locale.get("SETTING_GENERAL")} /{" "}
+                {locale.get("SETTING_ADVANCED")}
               </Button>
               <Button
                 onClick={() =>
@@ -696,7 +749,7 @@ export async function createHoyoplayLauncher({
                   ]).then(() => setSettingsOpen(false))
                 }
               >
-                Save
+                {locale.get("SETTING_SAVE")}
               </Button>
             </ModalFooter>
           </ModalContent>
