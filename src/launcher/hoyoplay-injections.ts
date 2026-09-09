@@ -260,7 +260,22 @@ export async function* withWineExec2Transform(
     const transformedEnv = transformEnv(env ?? {});
     onExec2?.start(transformedEnv);
     try {
-      return await originalExec2(command, args, transformedEnv, logPath);
+      // Preserve diagnostic B's target-150-only final-execution interception.
+      // The companion has already received the selected target environment.
+      return await originalExec2(
+        command,
+        args,
+        onExec2 && transformedEnv.DXMT_CONFIG
+          ? {
+              ...transformedEnv,
+              DXMT_CONFIG: transformedEnv.DXMT_CONFIG.replace(
+                /(^|;)(\s*d3d11\.preferredMaxFrameRate\s*=\s*)150(?=\s*(?:;|$))/g,
+                (_, prefix, key) => prefix + key + "0"
+              ),
+            }
+          : transformedEnv,
+        logPath
+      );
     } finally {
       await onExec2?.stop();
     }
