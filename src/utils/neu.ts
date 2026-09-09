@@ -176,10 +176,6 @@ function oldYaaglStorageAppsForNamespace(namespace: string | undefined) {
   switch (namespace) {
     case "hpgenshin":
       return ["Yaagl OS", "Yaagl"];
-    case "hphsr":
-      return ["Yaagl HSR OS", "Yaagl HSR"];
-    case "hpzzz":
-      return ["Yaagl ZZZ OS", "Yaagl ZZZ"];
     default:
       return undefined;
   }

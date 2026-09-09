@@ -53,18 +53,6 @@ export async function createUpdater(deps: { github: Github; aria2: Aria2 }) {
       case "bh3glb":
         appBundleName = "Yaagl.Honkai.Global.app.tar.gz";
         break;
-      case "hkrpgcn":
-        appBundleName = "Yaagl.HSR.app.tar.gz";
-        break;
-      case "hkrpgos":
-        appBundleName = "Yaagl.HSR.OS.app.tar.gz";
-        break;
-      case "napcn":
-        appBundleName = "Yaagl.ZZZ.app.tar.gz";
-        break;
-      case "napos":
-        appBundleName = "Yaagl.ZZZ.OS.app.tar.gz";
-        break;
       case "hoyoplaycn":
         appBundleName = "Yaagl CN.app.tar.gz";
         break;
@@ -120,10 +108,6 @@ export async function* downloadProgram(
     if (topLevelDir === "Yaagl.OS.app") topLevelDir = "Yaagl OS.app";
     if (topLevelDir === "Yaagl.Honkai.Global.app")
       topLevelDir = "Yaagl Honkai Global.app";
-    if (topLevelDir === "Yaagl.HSR.app") topLevelDir = "Yaagl HSR.app";
-    if (topLevelDir === "Yaagl.HSR.OS.app") topLevelDir = "Yaagl HSR OS.app";
-    if (topLevelDir === "Yaagl.ZZZ.app") topLevelDir = "Yaagl ZZZ.app";
-    if (topLevelDir === "Yaagl.ZZZ.OS.app") topLevelDir = "Yaagl ZZZ OS.app";
     if (topLevelDir === "Yaagl CN.app") topLevelDir = "Yaagl CN.app";
 
     await tar_extract_directory(

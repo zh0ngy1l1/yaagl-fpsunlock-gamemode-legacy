@@ -86,14 +86,6 @@ export async function* patchProgram(
   // winemetal.dll also to system32 for both native and builtin
   await cp(`./dxmt/winemetal.dll`, join(system32Dir, "winemetal.dll"));
 
-  if (server.id.startsWith("hkrpg")) {
-    await cp(
-      `./dxmt/nvngx.dll`,
-      resolve("./wine/lib/wine/x86_64-windows/nvngx.dll")
-    );
-    await cp(`./dxmt/nvngx.dll`, join(system32Dir, "nvngx.dll"));
-  }
-
   if (config.reshade) {
     await cp(resolve("./reshade/dxgi.dll"), join(gameDir, "dxgi.dll"));
     await cp(
@@ -102,24 +94,22 @@ export async function* patchProgram(
     );
   }
 
-  if (!server.id.startsWith("hkrpg")) {
-    await cp(
-      resolve("./sidecar/protonextras/steam64.exe"),
-      join(system32Dir, "steam.exe")
-    );
-    await cp(
-      resolve("./sidecar/protonextras/steam32.exe"),
-      join(syswow64Dir, "steam.exe")
-    );
-    await cp(
-      resolve("./sidecar/protonextras/lsteamclient64.dll"),
-      join(system32Dir, "lsteamclient.dll")
-    );
-    await cp(
-      resolve("./sidecar/protonextras/lsteamclient32.dll"),
-      join(syswow64Dir, "lsteamclient.dll")
-    );
-  }
+  await cp(
+    resolve("./sidecar/protonextras/steam64.exe"),
+    join(system32Dir, "steam.exe")
+  );
+  await cp(
+    resolve("./sidecar/protonextras/steam32.exe"),
+    join(syswow64Dir, "steam.exe")
+  );
+  await cp(
+    resolve("./sidecar/protonextras/lsteamclient64.dll"),
+    join(system32Dir, "lsteamclient.dll")
+  );
+  await cp(
+    resolve("./sidecar/protonextras/lsteamclient32.dll"),
+    join(syswow64Dir, "lsteamclient.dll")
+  );
 
   setKey("patched", "1");
 }

@@ -34,14 +34,8 @@ import { ChannelClient } from "../channel-client";
 import { Config } from "../config/config-def";
 import type { Github } from "../github";
 import { createClient as createGenshinOsClient } from "../clients/hk4eos";
-import { createClient as createHsrOsClient } from "../clients/hkrpgos";
-import { createClient as createZzzOsClient } from "../clients/napos";
-import genshinFallbackIcon from "../assets/Nahida.cr.png";
-import hsrFallbackIcon from "../icons/March7th.cr.png";
-import zzzFallbackIcon from "../icons/ZZZ_Bang.cr.png";
 import { createHoyoplayTaskQueueState } from "./hoyoplay-task-queue";
 import {
-  applyHsrFpsRegistry,
   createDelayedCompanion,
   ensureGenshinFpsUnlocker,
   getFpsConfig,
@@ -69,13 +63,12 @@ import {
   type HoyoplayRenderer,
 } from "./hoyoplay-wine";
 
-type HoyoplayGameId = "genshin" | "hsr" | "zzz";
+type HoyoplayGameId = "genshin";
 
 export type HoyoplayGameSpec = {
   id: HoyoplayGameId;
   namespace: string;
   title: string;
-  fallbackIcon: string;
   fpsSupported: boolean;
   createClient: (options: {
     wine: Wine;
@@ -93,7 +86,6 @@ type GameState = {
   ConfigurationUI: (props: {
     onClose: (action: "check-integrity" | "close") => void;
   }) => JSXElement;
-  fallbackIcon: string;
   fpsSupported: boolean;
   fpsEnabled: Accessor<boolean>;
   setFpsEnabled: (value: boolean) => void;
@@ -116,25 +108,8 @@ export const DEFAULT_HOYOPLAY_GAME_SPECS: HoyoplayGameSpec[] = [
     id: "genshin",
     namespace: "hpgenshin",
     title: "Genshin Impact",
-    fallbackIcon: genshinFallbackIcon,
     fpsSupported: true,
     createClient: createGenshinOsClient,
-  },
-  {
-    id: "hsr",
-    namespace: "hphsr",
-    title: "Honkai: Star Rail",
-    fallbackIcon: hsrFallbackIcon,
-    fpsSupported: true,
-    createClient: createHsrOsClient,
-  },
-  {
-    id: "zzz",
-    namespace: "hpzzz",
-    title: "Zenless Zone Zero",
-    fallbackIcon: zzzFallbackIcon,
-    fpsSupported: false,
-    createClient: createZzzOsClient,
   },
 ];
 
@@ -272,14 +247,10 @@ export async function createHoyoplayLauncher({
       if (game.id === "genshin" && fpsEnabled) {
         yield* ensureGenshinFpsUnlocker(aria2, activeWine);
       }
-      if (game.id === "hsr" && fpsEnabled) {
-        yield ["setStateText", "PATCHING"];
-        await applyHsrFpsRegistry(activeWine, fpsTarget);
-      }
 
       const shouldTransformEnv =
         renderer === HOYOPLAY_RENDERER_D3DMETAL ||
-        (fpsEnabled && (game.id === "genshin" || game.id === "hsr"));
+        (fpsEnabled && game.id === "genshin");
       let fpsUnlockerEnv: Record<string, string> = {};
       const fpsUnlockerCompanion =
         game.id === "genshin" && fpsEnabled
@@ -332,8 +303,9 @@ export async function createHoyoplayLauncher({
   }
 
   return function HoyoplayLauncher() {
-    const [selectedGameIndex, setSelectedGameIndex] = createSignal(0);
-    const selectedGame = () => games[selectedGameIndex()];
+    // HoYoPlay selections were never persisted by this launcher. Always use
+    // its Genshin entry; unrelated legacy storage keys and data stay untouched.
+    const selectedGame = () => games[0];
     const [settingsOpen, setSettingsOpen] = createSignal(false);
     const [nativeSettingsGame, setNativeSettingsGame] =
       createSignal<GameState>();
@@ -428,11 +400,6 @@ export async function createHoyoplayLauncher({
       return game.client.updateRequired() ? "Update available" : "Ready";
     }
 
-    function selectGame(index: number) {
-      setSelectedGameIndex(index);
-      setVideoLoaded(false);
-    }
-
     function onPredownload() {
       const game = selectedGame();
       taskQueue.next(
@@ -493,29 +460,6 @@ export async function createHoyoplayLauncher({
             alt={selectedGame().title}
           />
         </Show>
-
-        <nav
-          class="hoyoplay-game-picker"
-          aria-label={locale.get("SETTING_GAME")}
-        >
-          <For each={games}>
-            {(game, index) => (
-              <button
-                classList={{
-                  "hoyoplay-game-choice": true,
-                  active: selectedGameIndex() === index(),
-                }}
-                aria-label={game.title}
-                aria-pressed={selectedGameIndex() === index()}
-                title={game.title}
-                onClick={() => selectGame(index())}
-              >
-                <img src={game.fallbackIcon} alt="" />
-                <span>{game.title}</span>
-              </button>
-            )}
-          </For>
-        </nav>
 
         <main class="hoyoplay-stage" aria-label={selectedGame().title}>
           <section

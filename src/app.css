@@ -119,59 +119,6 @@ body {
   object-fit: contain;
 }
 
-.hoyoplay-game-picker {
-  position: absolute;
-  z-index: 3;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  gap: 6px;
-  max-width: 55vw;
-  padding: 6px;
-  border-radius: 8px;
-  background: rgba(22, 32, 42, 0.7);
-}
-
-.hoyoplay-game-choice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 5px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-}
-
-.hoyoplay-game-choice img {
-  width: 36px;
-  height: 36px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.hoyoplay-game-choice span {
-  display: none;
-  font-size: 13px;
-  max-width: 120px;
-  text-align: left;
-}
-
-.hoyoplay-game-choice.active {
-  border-color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.hoyoplay-game-choice.active span {
-  display: block;
-}
-
-.hoyoplay-game-choice:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
 .hoyoplay-stage {
   position: absolute;
   inset: 0;
@@ -392,21 +339,6 @@ body {
 }
 
 @media (max-width: 700px) {
-  .hoyoplay-game-picker {
-    top: 12px;
-    right: 12px;
-    max-width: 58vw;
-  }
-
-  .hoyoplay-game-choice.active span {
-    display: none;
-  }
-
-  .hoyoplay-game-choice img {
-    width: 30px;
-    height: 30px;
-  }
-
   .hoyoplay-action-area {
     right: 24px;
     bottom: 24px;

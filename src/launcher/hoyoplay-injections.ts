@@ -6,7 +6,6 @@ import {
   getKeyOrDefault,
   humanFileSize,
   mkdirp,
-  readBinary,
   resolve,
   setKey,
   spawn,
@@ -286,69 +285,4 @@ export async function* withWineExec2Transform(
   } finally {
     wine.exec2 = originalExec2;
   }
-}
-
-export async function applyHsrFpsRegistry(wine: Wine, fps: number) {
-  const key = "HKEY_CURRENT_USER\\Software\\Cognosphere\\Star Rail";
-  const queryLog = resolve("./hoyoplay_hsr_fps_query.log");
-
-  await wine.exec("reg", ["query", key], {}, queryLog);
-  const decoder = new TextDecoder("utf-8", { fatal: false });
-  const output = decoder.decode(await readBinary(queryLog));
-  const line = output
-    .split("\n")
-    .map(x => x.trim())
-    .find(x => x.startsWith("GraphicsSettings_Model_h"));
-  if (!line) return;
-
-  const [valueName] = line.split(/\s+/, 1);
-  const hexStart = line.indexOf("REG_BINARY");
-  if (hexStart < 0) return;
-
-  const bytes = line
-    .slice(hexStart + "REG_BINARY".length)
-    .replace(/[^0-9a-fA-F]/g, "")
-    .match(/.{1,2}/g)
-    ?.map(x => parseInt(x, 16));
-  if (!bytes) return;
-
-  const fpsBytes = new TextEncoder().encode(String(fps));
-  const marker = Array.from(new TextEncoder().encode("FPS"));
-  const markerIndex = bytes.findIndex((_, i) =>
-    marker.every((value, j) => bytes[i + j] === value)
-  );
-  if (markerIndex < 0) return;
-
-  const searchStart = markerIndex + marker.length;
-  const valueIndex = bytes.findIndex(
-    (value, i) =>
-      i >= searchStart &&
-      value >= "0".charCodeAt(0) &&
-      value <= "9".charCodeAt(0)
-  );
-  if (valueIndex < 0) return;
-
-  const valueEnd = (() => {
-    let i = valueIndex;
-    while (i < bytes.length && bytes[i] >= 0x30 && bytes[i] <= 0x39) i++;
-    return i;
-  })();
-  bytes.splice(valueIndex, valueEnd - valueIndex, ...Array.from(fpsBytes));
-
-  await wine.exec(
-    "reg",
-    [
-      "add",
-      key,
-      "/v",
-      valueName,
-      "/t",
-      "REG_BINARY",
-      "/d",
-      bytes.map(x => x.toString(16).padStart(2, "0")).join(""),
-      "/f",
-    ],
-    {},
-    "/dev/null"
-  );
 }
