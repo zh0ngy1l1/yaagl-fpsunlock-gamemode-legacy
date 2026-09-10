@@ -217,9 +217,10 @@ export function withDxmtPreferredMaxFrameRate(
   fps: number
 ) {
   const current = env.DXMT_CONFIG ?? "";
-  const next = current.includes("d3d11.preferredMaxFrameRate=")
-    ? current.replace(/d3d11\.preferredMaxFrameRate=\d+;?/g, "")
-    : current;
+  const next = current
+    .split(";")
+    .filter(entry => !/^\s*d3d11\.preferredMaxFrameRate\s*=/.test(entry))
+    .join(";");
 
   return {
     ...env,
@@ -261,7 +262,8 @@ export async function* withWineExec2Transform(
   onExec2?: {
     start(env: Record<string, string>): void;
     stop(): Promise<void>;
-  }
+  },
+  transformGameEnv?: (env: Record<string, string>) => Record<string, string>
 ): CommonUpdateProgram {
   const originalExec2 = wine.exec2.bind(wine);
 
@@ -269,20 +271,12 @@ export async function* withWineExec2Transform(
     const transformedEnv = transformEnv(env ?? {});
     onExec2?.start(transformedEnv);
     try {
-      // Preserve diagnostic B's target-150-only final-execution interception.
-      // The companion has already received the selected target environment.
+      // The companion keeps the selected target environment. Apply the game
+      // override only at final execution, without changing that environment.
       return await originalExec2(
         command,
         args,
-        onExec2 && transformedEnv.DXMT_CONFIG
-          ? {
-              ...transformedEnv,
-              DXMT_CONFIG: transformedEnv.DXMT_CONFIG.replace(
-                /(^|;)(\s*d3d11\.preferredMaxFrameRate\s*=\s*)150(?=\s*(?:;|$))/g,
-                (_, prefix, key) => prefix + key + "0"
-              ),
-            }
-          : transformedEnv,
+        transformGameEnv ? transformGameEnv(transformedEnv) : transformedEnv,
         logPath
       );
     } finally {

@@ -283,7 +283,13 @@ export async function createHoyoplayLauncher({
                 stop() {
                   return fpsUnlockerCompanion.stop();
                 },
-              }
+              },
+              game.id === "genshin" &&
+                fpsEnabled &&
+                renderer === HOYOPLAY_RENDERER_DXMT &&
+                fpsTarget > 60
+                ? env => withDxmtPreferredMaxFrameRate(env, 0)
+                : undefined
             )
           : game.client.launch(game.config);
 
