@@ -730,7 +730,9 @@ export async function createWineFromRoot({
   }
 
   async function waitUntilServerOff() {
-    return await exec2([join(dirname(loaderBin), "wineserver"), "-w"], {
+    // Bind completion to this command. Native spawn IDs can be reused while
+    // the stopped companion still has an outstanding exit event.
+    return await exec([join(dirname(loaderBin), "wineserver"), "-w"], {
       ...getEnvironmentVariables(),
     });
   }
