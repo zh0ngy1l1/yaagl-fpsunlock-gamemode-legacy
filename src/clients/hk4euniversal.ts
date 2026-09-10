@@ -1,3 +1,4 @@
+import { DEFAULT_WINE_DISTRIBUTION } from "../config/defaults";
 import { CreateClientOptions } from "./shared";
 import s from "../assets/Nahida.cr.png";
 import { createClient as createCNClient } from "./hk4ecn";
@@ -6,7 +7,7 @@ import { ChannelClient } from "../channel-client";
 
 export const DEFAULT_WINE_DISTRO_URL =
   "https://github.com/3Shain/winecx/releases/download/gi-wine-1.2/wine.tar.gz";
-export const DEFAULT_WINE_DISTRO_TAG = "11.0-dxmt-signed-with-patches";
+export const DEFAULT_WINE_DISTRO_TAG = DEFAULT_WINE_DISTRIBUTION;
 
 export async function createClient(
   options: CreateClientOptions

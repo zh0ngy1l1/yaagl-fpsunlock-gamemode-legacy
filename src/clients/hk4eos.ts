@@ -1,3 +1,4 @@
+import { DEFAULT_WINE_DISTRIBUTION } from "../config/defaults";
 import { Server } from "@constants";
 
 // import d from "../../external/hk4e/dW5pdHlwbGF5ZXJfcGF0Y2hfb3MudmNkaWZmCg==.vcdiff?url";
@@ -21,7 +22,7 @@ import {
 
 export const DEFAULT_WINE_DISTRO_URL =
   "https://github.com/3Shain/wine/releases/download/v9.9-mingw/wine.tar.gz";
-export const DEFAULT_WINE_DISTRO_TAG = "11.0-dxmt-signed-with-patches";
+export const DEFAULT_WINE_DISTRO_TAG = DEFAULT_WINE_DISTRIBUTION;
 
 const SERVER_DEFINITION: Server = {
   id: "hk4e_global",

@@ -22,6 +22,10 @@ import {
 import { createGithubEndpoint } from "./github";
 import { createLauncher } from "./launcher";
 import { createHoyoplayLauncher } from "./launcher/hoyoplay";
+import {
+  getHoyoplayWineInstallationDistribution,
+  prepareFreshHoyoplayWineSelection,
+} from "./launcher/hoyoplay-wine";
 import "./app.css";
 import { createUpdater, downloadProgram } from "./updater";
 import { createCommonUpdateUI } from "./common-update-ui";
@@ -160,10 +164,18 @@ export async function createApp() {
       });
     }
   } else {
+    let wineDistribution = wineStatus.wineDistribution;
+    if (
+      import.meta.env.YAAGL_CHANNEL_CLIENT === "hoyoplay" ||
+      import.meta.env.YAAGL_CHANNEL_CLIENT === "hoyoplaycn"
+    ) {
+      wineDistribution = await getHoyoplayWineInstallationDistribution();
+      await prepareFreshHoyoplayWineSelection("genshin");
+    }
     MainApp = await createWineInstallProgram({
       aria2,
       wineAbsPrefix: prefixPath,
-      wineDistro: wineStatus.wineDistribution,
+      wineDistro: wineDistribution,
       locale,
     });
   }

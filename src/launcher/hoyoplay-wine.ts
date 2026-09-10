@@ -26,9 +26,13 @@ import { getWineDistributions, type Wine, type WineDistribution } from "@wine";
 import { addCertsToWine } from "../wine/cert";
 import { DXMT_FILES } from "../downloadable-resource";
 import { dirname, join } from "path-browserify";
+import {
+  DEFAULT_WINE_DISTRIBUTION,
+  GAME_SETTING_DEFAULTS,
+} from "../config/defaults";
 
 export const SHARED_WINE_TAG = "__shared__";
-export const HOYOPLAY_RENDERER_DXMT = "dxmt";
+export const HOYOPLAY_RENDERER_DXMT = GAME_SETTING_DEFAULTS.renderer;
 export const HOYOPLAY_RENDERER_D3DMETAL = "d3dmetal";
 // Resolved through Neutralino's app path. In packaged builds this is
 // ~/Library/Application Support/Yaagl OS/hoyoplay-wines.
@@ -472,19 +476,121 @@ export async function* ensureHoyoplayD3DMetalRuntime({
   return runtimeDir;
 }
 
-export async function getHoyoplayGameWineTag(gameId: string) {
+async function optionalWineKey(key: string) {
   try {
-    return await getKey(gameWineKey(gameId));
+    return await getKey(key);
+  } catch (error) {
+    if ((error as { code?: string } | undefined)?.code === "NE_ST_NOSTKEX") {
+      return undefined;
+    }
+    throw new Error(
+      "Wine setup stopped: saved Wine configuration could not be read. Existing Wine and prefix have not been changed."
+    );
+  }
+}
+
+// Run before the initial Wine installer creates wine_tag. Once that installer
+// finishes, a fresh profile otherwise looks like a legacy inherited selection.
+// Existing metadata or even an unidentifiable runtime must keep its old root.
+async function isFreshWineConfiguration() {
+  for (const key of ["wine_tag", "wine_state"]) {
+    if ((await optionalWineKey(key)) !== undefined) return false;
+  }
+  try {
+    const entries = await Neutralino.filesystem.readDirectory(resolve("."));
+    return !entries.some(
+      entry => entry.entry === "wine" || entry.entry === "wineprefix"
+    );
   } catch {
-    return SHARED_WINE_TAG;
+    // An unreadable directory is not proof of a fresh installation.
+    return false;
+  }
+}
+
+export async function getHoyoplayGameWineTag(gameId: string) {
+  const saved = await optionalWineKey(gameWineKey(gameId));
+  if (saved !== undefined) return saved;
+  return (await isFreshWineConfiguration())
+    ? DEFAULT_WINE_DISTRIBUTION
+    : SHARED_WINE_TAG;
+}
+
+// The original installer replaces ./wine and deletes ./wineprefix. Only enter
+// it for a verified fresh setup, a known selection with no installed files, or
+// an explicit recognized pending distribution update. Incomplete installations
+// need inspection rather than silently selecting the default or deleting data.
+export async function getHoyoplayWineInstallationDistribution() {
+  const versions = await getWineDistributions();
+  const state = await optionalWineKey("wine_state");
+  const tag = await optionalWineKey("wine_tag");
+  let entries: Neutralino.filesystem.DirectoryEntry[];
+  try {
+    entries = await Neutralino.filesystem.readDirectory(resolve("."));
+  } catch {
+    throw new Error(
+      "Wine setup stopped: the installation directory could not be inspected. Existing Wine and prefix have not been changed."
+    );
+  }
+  if (state === "update") {
+    const updateTag = await optionalWineKey("wine_update_tag");
+    const update = versions.find(version => version.id === updateTag);
+    if (!update) {
+      throw new Error(
+        "Wine setup stopped: the pending Wine distribution is missing or unknown. Existing Wine and prefix have not been changed."
+      );
+    }
+    return update;
+  }
+  if (
+    entries.some(
+      entry => entry.entry === "wine" || entry.entry === "wineprefix"
+    )
+  ) {
+    throw new Error(
+      "Wine setup stopped: an existing Wine installation or prefix has incomplete or unrecognized configuration. Inspect it before reinstalling; existing files have not been changed."
+    );
+  }
+  if (state !== undefined && state !== "ready") {
+    throw new Error(
+      "Wine setup stopped: the saved Wine setup state is unrecognized. Inspect it before reinstalling."
+    );
+  }
+  if (tag !== undefined) {
+    const existing = versions.find(version => version.id === tag);
+    if (!existing) {
+      throw new Error(
+        "Wine setup stopped: the saved Wine distribution is unknown. It will not be replaced with the default distribution."
+      );
+    }
+    return existing;
+  }
+  if (state !== undefined) {
+    throw new Error(
+      "Wine setup stopped: a Wine setup state exists without a distribution. Inspect the incomplete configuration before reinstalling."
+    );
+  }
+  const fallback = versions.find(
+    version => version.id === DEFAULT_WINE_DISTRIBUTION
+  );
+  if (!fallback) {
+    throw new Error(`Unknown Wine distribution: ${DEFAULT_WINE_DISTRIBUTION}`);
+  }
+  return fallback;
+}
+
+export async function prepareFreshHoyoplayWineSelection(gameId: string) {
+  // A failed read is not evidence that a preference is absent.
+  if ((await optionalWineKey(gameWineKey(gameId))) !== undefined) return;
+  if (await isFreshWineConfiguration()) {
+    await setKey(gameWineKey(gameId), DEFAULT_WINE_DISTRIBUTION);
   }
 }
 
 export function setHoyoplayGameWineTag(gameId: string, wineTag: string) {
-  return setKey(
-    gameWineKey(gameId),
-    wineTag === SHARED_WINE_TAG ? null : wineTag
-  );
+  // This current-only compatibility value cannot be selected anew in the UI.
+  // Keep an inherited/missing or explicitly saved legacy value as it was.
+  if (wineTag === SHARED_WINE_TAG) return Promise.resolve();
+  return setKey(gameWineKey(gameId), wineTag);
 }
 
 export async function getHoyoplayGameRenderer(
@@ -515,28 +621,33 @@ export async function getHoyoplayD3DMetalPath() {
 
 export async function getHoyoplayWineOptions(currentTag: string) {
   const versions = await getWineDistributions();
-  return [
-    {
+  const options: {
+    tag: string;
+    displayName: string;
+    url: string;
+    disabled?: boolean;
+  }[] = versions.map(x => ({
+    tag: x.id,
+    displayName: x.displayName,
+    url: x.remoteUrl,
+  }));
+  if (currentTag === SHARED_WINE_TAG) {
+    const sharedTag = (await optionalWineKey("wine_tag")) ?? "";
+    const known = versions.find(x => x.id === sharedTag);
+    options.unshift({
       tag: SHARED_WINE_TAG,
-      displayName: "Shared launcher Wine",
+      displayName: known
+        ? `${known.displayName} (existing runtime)`
+        : sharedTag
+        ? `${sharedTag} (existing runtime; distribution not identified)`
+        : "Existing runtime (distribution not identified)",
       url: "",
-    },
-    ...versions.map(x => ({
-      tag: x.id,
-      displayName: x.displayName,
-      url: x.remoteUrl,
-    })),
-    ...(currentTag !== SHARED_WINE_TAG &&
-    !versions.some(x => x.id === currentTag)
-      ? [
-          {
-            tag: currentTag,
-            displayName: currentTag,
-            url: "",
-          },
-        ]
-      : []),
-  ];
+      disabled: true,
+    });
+  } else if (!versions.some(x => x.id === currentTag)) {
+    options.push({ tag: currentTag, displayName: currentTag, url: "" });
+  }
+  return options;
 }
 
 export async function createWineFromRoot({

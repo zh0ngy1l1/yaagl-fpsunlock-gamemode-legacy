@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import {
   createIcon,
   FormControl,
@@ -26,7 +27,7 @@ export async function createProxyHostConfig({
   try {
     config.proxyHost = await getKey("config_proxyHost");
   } catch {
-    config.proxyHost = "127.0.0.1:8080"; // default value
+    config.proxyHost = SETTING_DEFAULTS.config_proxyHost;
   }
 
   const [value, setValue] = createSignal(config.proxyHost);

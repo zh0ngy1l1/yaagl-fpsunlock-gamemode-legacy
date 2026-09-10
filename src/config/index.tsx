@@ -28,7 +28,6 @@ import { createMetalHUDConfig } from "./metal-hud";
 import { createGameInstallDirConfig } from "./game-install-dir";
 import { createRetinaConfig } from "./retina";
 import { createLeftCmdConfig } from "./left-cmd";
-import { createWineDistroConfig } from "./wine-distribution";
 import createLocaleConfig from "./ui-locale";
 import createFPSUnlock from "./fps-unlock";
 import { exec2, getKeyOrDefault, resolve, setKey } from "../utils";
@@ -61,10 +60,6 @@ export async function createConfiguration({
   onCheckUpdate: () => void;
 }) {
   const config: Partial<Config> = {};
-  const [WD] = await createWineDistroConfig({
-    locale,
-    config,
-  });
   const [MH] = await createMetalHUDConfig({ locale, config });
   const [R] = await createRetinaConfig({ locale, config });
   const [LC] = await createLeftCmdConfig({ locale, config });
@@ -256,11 +251,6 @@ export async function createConfiguration({
                   alignItems="start"
                 >
                   {wineSettings()}
-                  <Show when={wineSettings()}>
-                    <Divider />
-                    <Heading size="sm">Shared launcher Wine</Heading>
-                  </Show>
-                  <WD />
                 </VStack>
               </TabPanel>
               <Show when={advanceSetting()}>

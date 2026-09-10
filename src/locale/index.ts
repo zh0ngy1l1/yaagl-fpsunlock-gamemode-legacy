@@ -8,6 +8,7 @@ import { ja_JP } from "./ja_JP";
 import { ko_KR } from "./ko_KR";
 import { de_DE } from "./de_DE";
 import { th_TH } from "./th_TH";
+import { SETTING_DEFAULTS } from "@config/defaults";
 import {
   alert as ualert,
   prompt as uprompt,
@@ -32,24 +33,16 @@ export const locales = {
 };
 
 export async function createLocale() {
-  let lang = "zh_cn";
+  let lang: string = SETTING_DEFAULTS.config_uiLocale;
   try {
     lang = (await getKey("config_uiLocale")).toLowerCase();
   } catch {
-    lang = `${navigator.language}`.replaceAll("-", "_").toLowerCase();
-    if (lang == "") {
-      lang = "en";
-    } else {
-      lang = lang.split(".")[0];
-    }
-    // hacks
-    if (lang.startsWith("en_")) {
-      lang = "en";
-    }
+    // A fresh profile uses English independently of the system language.
   }
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore THIS IS A BUG
-  const currentLanguage: keyof typeof locales = lang in locales ? lang : "en";
+  const currentLanguage =
+    (Object.keys(locales) as (keyof typeof locales)[]).find(
+      id => id.toLowerCase() == lang
+    ) ?? SETTING_DEFAULTS.config_uiLocale;
   const locale = locales[currentLanguage];
 
   function alert(

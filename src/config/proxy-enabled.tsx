@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { Box, Checkbox, FormControl, FormLabel } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "../locale";
@@ -20,7 +21,7 @@ export async function createProxyEnabledConfig({
   try {
     config.proxyEnabled = (await getKey("config_proxyEnabled")) == "true";
   } catch {
-    config.proxyEnabled = false; // default value
+    config.proxyEnabled = SETTING_DEFAULTS.config_proxyEnabled;
   }
 
   const [value, setValue] = createSignal(config.proxyEnabled);

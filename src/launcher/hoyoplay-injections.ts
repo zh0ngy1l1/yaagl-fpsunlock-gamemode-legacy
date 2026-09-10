@@ -1,4 +1,5 @@
 import type { Aria2 } from "@aria2";
+import { GAME_SETTING_DEFAULTS } from "@config/defaults";
 import type { CommonUpdateProgram } from "@common-update-ui";
 import {
   exec,
@@ -186,11 +187,20 @@ export function createDelayedCompanion(
 export async function getFpsConfig(gameId: string) {
   return {
     enabled:
-      (await getKeyOrDefault(`hoyoplay_${gameId}_fps_enabled`, "false")) ==
-      "true",
+      (await getKeyOrDefault(
+        `hoyoplay_${gameId}_fps_enabled`,
+        String(GAME_SETTING_DEFAULTS.fpsUnlockEnabled)
+      )) == "true",
     target: Math.max(
       1,
-      Math.trunc(Number(await getKeyOrDefault(`hoyoplay_${gameId}_fps`, "120")))
+      Math.trunc(
+        Number(
+          await getKeyOrDefault(
+            `hoyoplay_${gameId}_fps`,
+            String(GAME_SETTING_DEFAULTS.fpsUnlockTarget)
+          )
+        )
+      )
     ),
   };
 }

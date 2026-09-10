@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { FormControl, FormLabel, Box, Checkbox } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "@locale";
@@ -20,7 +21,7 @@ export async function createMetalHUDConfig({
   try {
     config.metalHud = (await getKey("config_metalHud")) == "true";
   } catch {
-    config.metalHud = false; // default value
+    config.metalHud = SETTING_DEFAULTS.config_metalHud;
   }
 
   const [value, setValue] = createSignal(config.metalHud);

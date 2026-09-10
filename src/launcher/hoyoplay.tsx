@@ -23,6 +23,7 @@ import { Accessor, For, JSXElement, Show, createSignal } from "solid-js";
 import { createGameInstallationDirectorySanitizer } from "../accidental-complexity";
 import { ChannelClient } from "../channel-client";
 import { Config } from "../config/config-def";
+import { GAME_SETTING_DEFAULTS } from "../config/defaults";
 import type { Github } from "../github";
 import { createClient as createGenshinOsClient } from "../clients/hk4eos";
 import { createHoyoplayTaskQueueState } from "./hoyoplay-task-queue";
@@ -89,6 +90,7 @@ type GameState = {
     tag: string;
     displayName: string;
     url: string;
+    disabled?: boolean;
   }[];
 };
 
@@ -104,7 +106,9 @@ export const DEFAULT_HOYOPLAY_GAME_SPECS: HoyoplayGameSpec[] = [
 
 function sanitizeFps(value: string) {
   const fps = Math.trunc(Number(value));
-  return Number.isFinite(fps) && fps > 0 ? fps : 120;
+  return Number.isFinite(fps) && fps > 0
+    ? fps
+    : GAME_SETTING_DEFAULTS.fpsUnlockTarget;
 }
 
 function namespacedProgram(
@@ -222,7 +226,7 @@ export async function createHoyoplayLauncher({
         game.wineTag() === SHARED_WINE_TAG
       ) {
         throw new Error(
-          "D3DMetal requires a per-game Wine selection. Choose a Wine version instead of Shared launcher Wine so the shared YAAGL runtime stays untouched."
+          "D3DMetal requires a per-game Wine selection. Choose a Wine Distribution instead of the existing inherited runtime so its files stay untouched."
         );
       }
       if (renderer === HOYOPLAY_RENDERER_D3DMETAL) {
@@ -566,30 +570,27 @@ export async function createHoyoplayLauncher({
                   wineSettings={
                     <div class="hoyoplay-game-settings">
                       <label class="hoyoplay-setting-row">
-                        <span>Genshin Wine</span>
+                        <span>Wine Distribution</span>
                         <select
                           value={game().wineTag()}
+                          title={
+                            game().wineOptions.find(
+                              item => item.tag === game().wineTag()
+                            )?.displayName
+                          }
                           onInput={event =>
                             game().setWineTag(event.currentTarget.value)
                           }
                         >
                           <For each={game().wineOptions}>
                             {item => (
-                              <option value={item.tag}>
+                              <option value={item.tag} disabled={item.disabled}>
                                 {item.displayName}
                               </option>
                             )}
                           </For>
                         </select>
                       </label>
-                      <p class="hoyoplay-settings-muted">
-                        Shared uses the launcher Wine. Per-game selections are
-                        cached under{" "}
-                        <code>
-                          Application Support/{appSupportName}/hoyoplay-wines
-                        </code>{" "}
-                        and still use the shared <code>wineprefix</code>.
-                      </p>
                       <label class="hoyoplay-setting-row">
                         <span>Wine Renderer</span>
                         <select
