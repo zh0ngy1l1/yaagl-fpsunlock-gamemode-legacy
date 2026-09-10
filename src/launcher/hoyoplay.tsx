@@ -23,7 +23,6 @@ import { Accessor, For, JSXElement, Show, createSignal } from "solid-js";
 import { createGameInstallationDirectorySanitizer } from "../accidental-complexity";
 import { ChannelClient } from "../channel-client";
 import { Config } from "../config/config-def";
-import { GAME_SETTING_DEFAULTS } from "../config/defaults";
 import type { Github } from "../github";
 import { createClient as createGenshinOsClient } from "../clients/hk4eos";
 import { createHoyoplayTaskQueueState } from "./hoyoplay-task-queue";
@@ -32,11 +31,18 @@ import {
   ensureGenshinFpsUnlocker,
   getFpsConfig,
   setFpsConfig,
+  setFpsUnlockEnabled,
   startGenshinFpsUnlockScript,
   withD3DMetalPerformanceEnv,
   withDxmtPreferredMaxFrameRate,
   withWineExec2Transform,
 } from "./hoyoplay-injections";
+import {
+  getFpsTargetError,
+  MAX_FPS_TARGET,
+  MIN_FPS_TARGET,
+  resolveFpsTarget,
+} from "./fps-target";
 import {
   createHoyoplayWineProxy,
   ensureHoyoplayGameWine,
@@ -103,13 +109,6 @@ export const DEFAULT_HOYOPLAY_GAME_SPECS: HoyoplayGameSpec[] = [
     createClient: createGenshinOsClient,
   },
 ];
-
-function sanitizeFps(value: string) {
-  const fps = Math.trunc(Number(value));
-  return Number.isFinite(fps) && fps > 0
-    ? fps
-    : GAME_SETTING_DEFAULTS.fpsUnlockTarget;
-}
 
 function namespacedProgram(
   aria2: Aria2,
@@ -217,7 +216,9 @@ export async function createHoyoplayLauncher({
   function launchProgram(game: GameState): CommonUpdateProgram {
     return (async function* () {
       const fpsEnabled = game.fpsSupported && game.fpsEnabled();
-      const fpsTarget = sanitizeFps(game.fpsTarget());
+      // A disabled unlocker never consumes the stored target. In particular,
+      // invalid legacy preferences must not affect its normal renderer path.
+      const fpsTarget = fpsEnabled ? resolveFpsTarget(game.fpsTarget()) : 0;
       const activeWine = game.wineRef.current;
       const renderer = game.renderer();
 
@@ -340,17 +341,44 @@ export async function createHoyoplayLauncher({
     }
 
     async function saveFpsSettings(game: GameState) {
-      const fps = sanitizeFps(game.fpsTarget());
-      game.setFpsTarget(String(fps));
+      const fps = resolveFpsTarget(game.fpsTarget());
       await setFpsConfig(game.id, game.fpsEnabled(), String(fps));
+      game.setFpsTarget(String(fps));
+    }
+
+    async function saveNativeSettings(game: GameState) {
+      // Validate before any of the independently stored selections are saved.
+      if (getFpsTargetError(game.fpsTarget())) return;
+      await Promise.all([
+        saveWineSettings(game),
+        saveRendererSettings(game),
+        saveFpsSettings(game),
+      ]);
+      closeNativeSettings();
     }
 
     async function onPrimaryAction() {
       if (programBusy()) return;
       const game = selectedGame();
+      const invalidTarget = getFpsTargetError(game.fpsTarget());
+      if (
+        invalidTarget &&
+        game.fpsEnabled() &&
+        game.client.installState() === "INSTALLED" &&
+        !game.client.updateRequired()
+      ) {
+        openNativeSettings(game);
+        return;
+      }
       await saveWineSettings(game);
       await saveRendererSettings(game);
-      await saveFpsSettings(game);
+      if (invalidTarget) {
+        // An unused legacy target does not block disabled launching or game
+        // installation/updating. Never save that invalid value as a new target.
+        await setFpsUnlockEnabled(game.id, game.fpsEnabled());
+      } else {
+        await saveFpsSettings(game);
+      }
 
       if (game.client.installState() === "INSTALLED") {
         if (game.client.updateRequired()) {
@@ -504,6 +532,16 @@ export async function createHoyoplayLauncher({
                     : locale.get("SETTING_FPS_UNLOCK_DEFAULT")}
                 </button>
               </Show>
+              <Show
+                when={
+                  selectedGame().fpsEnabled() &&
+                  getFpsTargetError(selectedGame().fpsTarget())
+                }
+              >
+                <p class="hoyoplay-settings-muted" role="alert">
+                  {getFpsTargetError(selectedGame().fpsTarget())}
+                </p>
+              </Show>
               <div class="hoyoplay-button-group">
                 <Button
                   class="hoyoplay-launch-button"
@@ -558,9 +596,14 @@ export async function createHoyoplayLauncher({
                           <span>Target FPS</span>
                           <input
                             type="number"
-                            min="1"
+                            min={MIN_FPS_TARGET}
+                            max={MAX_FPS_TARGET}
                             step="1"
                             value={game().fpsTarget()}
+                            aria-invalid={
+                              !!getFpsTargetError(game().fpsTarget())
+                            }
+                            aria-describedby="hoyoplay-fps-target-error"
                             onInput={event =>
                               game().setFpsTarget(event.currentTarget.value)
                             }
@@ -633,16 +676,15 @@ export async function createHoyoplayLauncher({
                   settingsFooter={
                     <ModalFooter class="hoyoplay-settings-footer">
                       <Button
-                        onClick={() =>
-                          Promise.all([
-                            saveWineSettings(game()),
-                            saveRendererSettings(game()),
-                            saveFpsSettings(game()),
-                          ]).then(closeNativeSettings)
-                        }
+                        onClick={() => saveNativeSettings(game()).catch(fatal)}
                       >
                         {locale.get("SETTING_SAVE")}
                       </Button>
+                      <Show when={getFpsTargetError(game().fpsTarget())}>
+                        <p id="hoyoplay-fps-target-error" role="alert">
+                          {getFpsTargetError(game().fpsTarget())}
+                        </p>
+                      </Show>
                     </ModalFooter>
                   }
                   onClose={action => {

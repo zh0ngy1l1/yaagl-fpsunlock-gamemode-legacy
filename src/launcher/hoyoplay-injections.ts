@@ -14,6 +14,7 @@ import {
 } from "@utils";
 import type { Wine } from "@wine";
 import { join } from "path-browserify";
+import { resolveFpsTarget } from "./fps-target";
 
 const FPS_UNLOCKER_URL =
   "https://github.com/rishabhroyy/genshin-fps-unlock-universal/releases/download/v3.0.7/unlockfps.exe";
@@ -54,6 +55,7 @@ export async function startGenshinFpsUnlockScript(
   wineBin = resolve("./wine/bin/wine"),
   env: Record<string, string> = {}
 ) {
+  fps = resolveFpsTarget(fps);
   const scriptPath = resolve("./hoyoplay_genshin_fps_unlocker.sh");
   const logPath = resolve("./logs/hoyoplay_genshin_fps_unlocker.log");
 
@@ -191,25 +193,24 @@ export async function getFpsConfig(gameId: string) {
         `hoyoplay_${gameId}_fps_enabled`,
         String(GAME_SETTING_DEFAULTS.fpsUnlockEnabled)
       )) == "true",
-    target: Math.max(
-      1,
-      Math.trunc(
-        Number(
-          await getKeyOrDefault(
-            `hoyoplay_${gameId}_fps`,
-            String(GAME_SETTING_DEFAULTS.fpsUnlockTarget)
-          )
-        )
-      )
+    // Keep invalid legacy values visible; only an absent preference defaults.
+    target: await getKeyOrDefault(
+      `hoyoplay_${gameId}_fps`,
+      String(GAME_SETTING_DEFAULTS.fpsUnlockTarget)
     ),
   };
 }
 
 export function setFpsConfig(gameId: string, enabled: boolean, target: string) {
+  const resolvedTarget = resolveFpsTarget(target);
   return Promise.all([
-    setKey(`hoyoplay_${gameId}_fps_enabled`, enabled ? "true" : "false"),
-    setKey(`hoyoplay_${gameId}_fps`, target),
+    setFpsUnlockEnabled(gameId, enabled),
+    setKey(`hoyoplay_${gameId}_fps`, String(resolvedTarget)),
   ]);
+}
+
+export function setFpsUnlockEnabled(gameId: string, enabled: boolean) {
+  return setKey(`hoyoplay_${gameId}_fps_enabled`, enabled ? "true" : "false");
 }
 
 export function withDxmtPreferredMaxFrameRate(

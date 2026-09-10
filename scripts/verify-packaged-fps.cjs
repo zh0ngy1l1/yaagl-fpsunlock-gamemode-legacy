@@ -9,7 +9,7 @@ const ts = require("typescript");
 const resourceFile = process.argv[2];
 assert(
   resourceFile,
-  "Usage: node scripts/verify-packaged-fps.cjs resources.neu [--report output.json] [--assert-baseline-limitation]"
+  "Usage: node scripts/verify-packaged-fps.cjs resources.neu [--report output.json] [--assert-baseline-unbounded]"
 );
 const bytes = fs.readFileSync(resourceFile);
 const sha256 = value => crypto.createHash("sha256").update(value).digest("hex");
@@ -135,13 +135,66 @@ const transform = smallestFunction(
   s => s.includes(".exec2.bind(") && s.includes("finally{"),
   "withWineExec2Transform"
 );
+const topVariables = ast.statements
+  .filter(ts.isVariableStatement)
+  .flatMap(statement => Array.from(statement.declarationList.declarations));
+const oldSanitizers = functions.filter(
+  n =>
+    text(n).includes("Math.trunc(Number(") &&
+    text(n).includes("Number.isFinite(") &&
+    text(n).includes(".fpsUnlockTarget")
+);
+if (process.argv.includes("--assert-baseline-unbounded")) {
+  const old = unique(oldSanitizers, "old unbounded target sanitizer");
+  const defaultReference = unique(
+    descendants(old, ts.isPropertyAccessExpression).filter(
+      n => n.name.text === "fpsUnlockTarget"
+    ),
+    "old fallback target"
+  ).expression.getText(ast);
+  const oldContext = { [defaultReference]: { fpsUnlockTarget: 120 } };
+  vm.createContext(oldContext);
+  vm.runInContext(text(old), oldContext);
+  assert.equal(oldContext[old.name.text]("361"), 361);
+  assert.equal(oldContext[old.name.text]("150.9"), 150);
+  console.log(
+    "Confirmed regression sensitivity: baseline accepts361 and truncates fractional150.9."
+  );
+  process.exit(0);
+}
+const targetError = smallestFunction(
+  s => s.includes("Number.isInteger(") && s.includes('.trim()===""'),
+  "getFpsTargetError"
+);
 const sanitize = smallestFunction(
   s =>
-    s.includes("Math.trunc(Number(") &&
-    s.includes("Number.isFinite(") &&
-    s.includes(".fpsUnlockTarget"),
-  "sanitizeFps"
+    s.includes(targetError.name.text + "(") &&
+    s.includes("throw new Error(") &&
+    s.includes("return Number("),
+  "resolveFpsTarget"
 );
+const constants = [];
+const addedConstants = new Set();
+function includeConstants(node) {
+  for (const id of descendants(node, ts.isIdentifier)) {
+    const declaration = topVariables.find(
+      n => ts.isIdentifier(n.name) && n.name.text === id.text
+    );
+    if (!declaration || addedConstants.has(id.text)) continue;
+    const value = declaration.initializer;
+    assert(
+      value &&
+        (ts.isNumericLiteral(value) ||
+          ts.isStringLiteral(value) ||
+          ts.isTemplateExpression(value)),
+      "Only primitive FPS constants: " + id.text
+    );
+    addedConstants.add(id.text);
+    includeConstants(value);
+    constants.push(declaration);
+  }
+}
+includeConstants(targetError);
 const ensure = smallestFunction(
   s =>
     s.includes('"drive_c","fps-unlocker"') &&
@@ -269,6 +322,7 @@ const extracted = [
   dxmt,
   metal,
   transform,
+  targetError,
   sanitize,
   launch,
 ];
@@ -286,8 +340,10 @@ const bindings = Object.fromEntries(
       ? "metal"
       : n === transform
       ? "transform"
+      : n === targetError
+      ? "targetError"
       : n === sanitize
-      ? "sanitize"
+      ? "resolveTarget"
       : "quote",
     n.name.text,
   ])
@@ -352,7 +408,12 @@ const context = {
   },
 };
 vm.createContext(context);
-vm.runInContext(extracted.map(text).join("\n"), context);
+vm.runInContext(
+  constants.map(n => "const " + text(n) + ";").join("\n") +
+    "\n" +
+    extracted.map(text).join("\n"),
+  context
+);
 const events = [];
 const launchOutputs = new Map();
 let cases = 0;
@@ -415,13 +476,15 @@ async function run({
   fail = false,
   endBeforeTimer = false,
   gameId = "genshin",
+  rejected = false,
 }) {
   state.events = [];
   state.scripts = [];
   state.spawns = [];
   state.timers.clear();
   const original = JSON.stringify(input);
-  const normalized = context[sanitize.name.text](String(target));
+  const normalized =
+    enabled && !rejected ? context[sanitize.name.text](String(target)) : 0;
   const current = (state.current = { fail, endBeforeTimer });
   const game = {
     id: gameId,
@@ -452,6 +515,24 @@ async function run({
       assert.equal(yielded, "supervised");
   } catch (error) {
     failure = error;
+  }
+  if (rejected) {
+    assert(
+      failure &&
+        /Target FPS must be a whole number from 1 to 360/.test(failure.message)
+    );
+    assert.deepEqual(
+      state.events,
+      [],
+      "Invalid target must fail before runtime setup, patching, execution or timers"
+    );
+    assert.equal(state.scripts.length, 0);
+    assert.equal(state.spawns.length, 0);
+    assert.equal(state.timers.size, 0);
+    assert.equal(JSON.stringify(input), original);
+    events.push({ target: String(target), enabled, renderer, rejected: true });
+    cases++;
+    return;
   }
   assert.equal(failure?.message, fail ? "mock game failure" : undefined);
   const hasCompanion = gameId === "genshin" && enabled;
@@ -752,7 +833,13 @@ async function verifyNativeForwarding() {
     nativeContext
   );
   const checks = [];
-  for (const target of [60, 61, 90, 120, 121, 144, 150, 160, 2147483647]) {
+  for (const target of [
+    1,
+    30,
+    59,
+    60,
+    ...Array.from({ length: 300 }, (_, i) => i + 61),
+  ]) {
     const output = launchOutputs.get(target);
     assert(output, "Launch output " + target);
     const before = commands.length;
@@ -819,62 +906,51 @@ async function verifyNativeForwarding() {
   };
 }
 (async () => {
-  if (process.argv.includes("--assert-baseline-limitation")) {
-    await assert.rejects(
-      run({ target: 160 }),
-      error =>
-        error instanceof assert.AssertionError &&
-        JSON.stringify(error.actual) === '["160"]' &&
-        JSON.stringify(error.expected) === '["0"]'
-    );
-    console.log(
-      "Confirmed regression sensitivity: accepted 417ed5c packaged target160 fails required game-DXMT0 assertion."
-    );
-    return;
-  }
-  for (const [raw, expected] of [
-    ["", 120],
-    ["0", 120],
-    ["-1", 120],
-    ["invalid", 120],
-    ["NaN", 120],
-    ["Infinity", 120],
-    ["150.9", 150],
-    ["60.9", 60],
-    ["61.9", 61],
-    ["160", 160],
-  ])
-    assert.equal(
-      context[sanitize.name.text](raw),
-      expected,
-      "Retained sanitizer " + raw
-    );
-  for (const target of [
-    1, 30, 59, 60, 61, 90, 120, 121, 144, 150, 160, 420, 2147483647,
-  ])
-    await run({ target });
-  for (const target of [1, 30, 59, 60, 150, 160])
-    await run({ target, enabled: false });
-  for (const renderer of ["d3dmetal", "other"])
-    for (const enabled of [false, true])
-      for (const target of [60, 61, 120, 150, 160, 2147483647])
-        await run({ target, enabled, renderer });
-  for (const target of [
+  for (const raw of [
     "",
     "0",
     "-1",
     "invalid",
     "NaN",
     "Infinity",
+    "-Infinity",
     "150.9",
     "60.9",
     "61.9",
-    "160",
+    "361",
+    "2147483647",
+    "1e309",
+  ]) {
+    assert.throws(
+      () => context[sanitize.name.text](raw),
+      /Target FPS must be a whole number from 1 to 360/
+    );
+    await run({ target: raw, rejected: true });
+    await run({ target: raw, enabled: false });
+    await assert.rejects(
+      context[start.name.text](runtime, Number(raw)),
+      /Target FPS must be a whole number from 1 to 360/
+    );
+  }
+  for (const target of [
+    1,
+    30,
+    59,
+    60,
+    ...Array.from({ length: 300 }, (_, i) => i + 61),
   ])
     await run({ target });
+  for (const target of [1, 30, 59, 60, 150, 160, 360])
+    await run({ target, enabled: false });
+  for (const renderer of ["d3dmetal", "other"])
+    for (const enabled of [false, true])
+      for (const target of [60, 61, 120, 150, 160, 360])
+        await run({ target, enabled, renderer });
   for (const input of [complexEnv, noRateEnv, absentEnv])
-    for (const target of [60, 61, 120, 150, 160]) await run({ target, input });
-  for (const target of [160, 60, 150, 90, 121, 160]) await run({ target });
+    for (const target of [60, 61, 120, 150, 151, 160, 359, 360])
+      await run({ target, input });
+  for (const target of [160, 60, 150, 90, 121, 360, 61, 160])
+    await run({ target });
   await run({
     target: 160,
     renderer: "other",
@@ -906,7 +982,7 @@ async function verifyNativeForwarding() {
     limits: [
       "Extracted packaged functions only, without application bootstrap; inert native and timer callbacks.",
       "Patch application, Wine waiting and reversion callbacks establish routing and finalization only; their implementation is separately source-compared.",
-      "Positive finite targets beyond Int32.MaxValue remain accepted by existing launcher validation but are outside the original companion positional argument range.",
+      "Every integer61–360 passes actual packaged target resolution, launch serialization and final mocked native command construction; invalid targets are rejected before process setup.",
       "Automated configuration verification is not gameplay acceptance.",
     ],
   };

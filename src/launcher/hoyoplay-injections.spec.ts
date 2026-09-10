@@ -15,7 +15,7 @@ async function finish(program: CommonUpdateProgram) {
 }
 
 describe("DXMT process-local FPS configuration", () => {
-  it.each([61, 90, 120, 121, 144, 150, 160, 420, 2147483647])(
+  it.each([61, 90, 120, 121, 144, 150, 160, 359, 360])(
     "retains target %i for the companion while final game configuration uses zero",
     async target => {
       const input = Object.freeze({
