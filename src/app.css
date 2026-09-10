@@ -110,37 +110,9 @@ body {
   pointer-events: none;
 }
 
-.hoyoplay-game-logo {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: min(416px, 42vw);
-  height: min(234px, 26vh);
-  object-fit: contain;
-}
-
 .hoyoplay-stage {
   position: absolute;
   inset: 0;
-}
-
-.hoyoplay-version-link {
-  display: block;
-  margin: 0 0 22px auto;
-  width: 136px;
-  min-height: 40px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: white;
-  text-shadow: 1px 1px 2px #333;
-  cursor: pointer;
-}
-
-.hoyoplay-version-link img {
-  width: 100%;
-  height: 40px;
-  object-fit: contain;
 }
 
 .hoyoplay-action-area {
@@ -257,25 +229,8 @@ body {
   cursor: pointer;
 }
 
-.hoyoplay-settings-tabs {
-  min-height: 290px;
-}
-
-.hoyoplay-settings-tabs [role="tablist"] {
-  min-width: 100px;
-  max-width: 30%;
-}
-
-.hoyoplay-settings-tabs [role="tab"] {
-  white-space: normal;
-  text-align: left;
-}
-
-.hoyoplay-settings-tabs [role="tabpanel"] {
-  flex: 1;
-  min-width: 0;
-  padding-top: 0;
-  padding-bottom: 0;
+.hoyoplay-game-settings {
+  width: 100%;
 }
 
 .hoyoplay-setting-row {
@@ -354,7 +309,7 @@ body {
     font-size: 14px;
   }
 
-  .hoyoplay-settings-modal .hoyoplay-setting-row {
+  .hoyoplay-setting-row {
     flex-wrap: wrap;
     gap: 6px;
     padding-bottom: 10px;
@@ -368,9 +323,5 @@ body {
 @media (max-height: 500px) {
   .hoyoplay-action-area {
     bottom: 20px;
-  }
-
-  .hoyoplay-game-logo {
-    height: 120px;
   }
 }
