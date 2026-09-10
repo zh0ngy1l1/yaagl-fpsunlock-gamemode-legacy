@@ -496,6 +496,36 @@ export const sha1sum = async (message: string) => {
 };
 
 const hooks: Array<(forced: boolean) => Promise<boolean>> = [];
+const closeGuards = new Set<() => Promise<boolean>>();
+let normalCloseInProgress = false;
+
+export function isNormalCloseInProgress() {
+  return normalCloseInProgress;
+}
+
+export async function requestNormalClose() {
+  if (normalCloseInProgress) return;
+  normalCloseInProgress = true;
+  let accepted = false;
+  try {
+    if (!(await GLOBAL_onClose(false))) return;
+    accepted = true;
+    await exit(0);
+  } finally {
+    // A rejected close permits later work. Once helper shutdown is accepted,
+    // keep new tasks blocked even while the native exit response is pending.
+    if (!accepted) normalCloseInProgress = false;
+  }
+}
+
+// Normal-close ownership checks run before any helper is terminated. They are
+// separate from termination hooks, whose order cannot safely provide a veto.
+export function addCloseGuard(guard: () => Promise<boolean>) {
+  closeGuards.add(guard);
+  return () => {
+    closeGuards.delete(guard);
+  };
+}
 
 export function addTerminationHook(fn: (forced: boolean) => Promise<boolean>) {
   hooks.push(fn);
@@ -510,6 +540,11 @@ export function addTerminationHook(fn: (forced: boolean) => Promise<boolean>) {
 
 // ??
 export async function GLOBAL_onClose(forced: boolean) {
+  if (!forced) {
+    for (const guard of closeGuards) {
+      if (!(await guard())) return false;
+    }
+  }
   for (const hook of hooks.reverse()) {
     if (!(await hook(forced)) && !forced) {
       return false; // aborted

@@ -6,10 +6,9 @@ import {
   resolve,
   appendFile,
   addTerminationHook,
-  GLOBAL_onClose,
+  requestNormalClose,
   setKey,
   getKeyOrDefault,
-  exit,
   rawString,
 } from "./utils";
 import { createAria2Retry } from "./aria2";
@@ -49,9 +48,7 @@ export async function createApp() {
   const aria2_port = 6868;
 
   await Neutralino.events.on("windowClose", async () => {
-    if (await GLOBAL_onClose(false)) {
-      exit(0);
-    }
+    await requestNormalClose();
   });
 
   const locale = await createLocale();

@@ -4,9 +4,12 @@ import { createConfiguration, type ConfigurationUIProps } from "@config";
 import { Locale } from "@locale";
 import {
   activateStorageNamespace,
+  addCloseGuard,
+  alert,
   fatal,
   humanDuration,
   humanFileSize,
+  isNormalCloseInProgress,
   openDir,
   withStorageNamespace,
 } from "@utils";
@@ -19,7 +22,14 @@ import {
   Progress,
   ProgressIndicator,
 } from "@hope-ui/solid";
-import { Accessor, For, JSXElement, Show, createSignal } from "solid-js";
+import {
+  Accessor,
+  For,
+  JSXElement,
+  Show,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import { createGameInstallationDirectorySanitizer } from "../accidental-complexity";
 import { ChannelClient } from "../channel-client";
 import { Config } from "../config/config-def";
@@ -324,7 +334,7 @@ export async function createHoyoplayLauncher({
       // Skip the startup patch-revert/integrity-check pass for a game that's
       // already known to need an update: repairing a stale install against
       // the latest manifest aborts instead of prompting to update.
-      if (game.client.updateRequired()) return;
+      if (game.client.updateRequired() || isNormalCloseInProgress()) return;
       taskQueue.next(
         namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
           game.client.init(game.config)
@@ -357,52 +367,71 @@ export async function createHoyoplayLauncher({
       closeNativeSettings();
     }
 
+    // Reserve the action before saving settings; the task queue sets busy later.
+    // Hold admission until its launch, Wine wait and patch cleanup finish.
+    let primaryActionPending = false;
+    onCleanup(
+      addCloseGuard(async () => {
+        if (!primaryActionPending && !programBusy()) return true;
+        await alert(
+          "YAAGL",
+          statusText() || locale.get("CONFIGURING_ENVIRONMENT")
+        );
+        return false;
+      })
+    );
     async function onPrimaryAction() {
-      if (programBusy()) return;
-      const game = selectedGame();
-      const invalidTarget = getFpsTargetError(game.fpsTarget());
-      if (
-        invalidTarget &&
-        game.fpsEnabled() &&
-        game.client.installState() === "INSTALLED" &&
-        !game.client.updateRequired()
-      ) {
-        openNativeSettings(game);
+      if (programBusy() || primaryActionPending || isNormalCloseInProgress())
         return;
-      }
-      await saveWineSettings(game);
-      await saveRendererSettings(game);
-      if (invalidTarget) {
-        // An unused legacy target does not block disabled launching or game
-        // installation/updating. Never save that invalid value as a new target.
-        await setFpsUnlockEnabled(game.id, game.fpsEnabled());
-      } else {
-        await saveFpsSettings(game);
-      }
-
-      if (game.client.installState() === "INSTALLED") {
-        if (game.client.updateRequired()) {
-          setPendingSizeBytes(game.client.updateSizeBytes?.() ?? 0);
-          taskQueue.next(
-            namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-              game.client.update()
-            )
-          );
+      primaryActionPending = true;
+      try {
+        const game = selectedGame();
+        const invalidTarget = getFpsTargetError(game.fpsTarget());
+        if (
+          invalidTarget &&
+          game.fpsEnabled() &&
+          game.client.installState() === "INSTALLED" &&
+          !game.client.updateRequired()
+        ) {
+          openNativeSettings(game);
+          return;
+        }
+        await saveWineSettings(game);
+        await saveRendererSettings(game);
+        if (invalidTarget) {
+          // An unused legacy target does not block disabled launching or game
+          // installation/updating. Never save that invalid value as a new target.
+          await setFpsUnlockEnabled(game.id, game.fpsEnabled());
         } else {
-          taskQueue.next(
+          await saveFpsSettings(game);
+        }
+
+        if (game.client.installState() === "INSTALLED") {
+          if (game.client.updateRequired()) {
+            setPendingSizeBytes(game.client.updateSizeBytes?.() ?? 0);
+            await taskQueue.next(
+              namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
+                game.client.update()
+              )
+            );
+          } else {
+            await taskQueue.next(
+              namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
+                launchProgram(game)
+              )
+            );
+          }
+        } else {
+          const selection = await selectPath();
+          if (!selection) return;
+          await taskQueue.next(
             namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-              launchProgram(game)
+              game.client.install(selection)
             )
           );
         }
-      } else {
-        const selection = await selectPath();
-        if (!selection) return;
-        taskQueue.next(
-          namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-            game.client.install(selection)
-          )
-        );
+      } finally {
+        primaryActionPending = false;
       }
     }
 
@@ -427,6 +456,7 @@ export async function createHoyoplayLauncher({
     }
 
     function onPredownload() {
+      if (programBusy() || isNormalCloseInProgress()) return;
       const game = selectedGame();
       taskQueue.next(
         namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
@@ -690,7 +720,10 @@ export async function createHoyoplayLauncher({
                   onClose={action => {
                     const savedGame = game();
                     closeNativeSettings();
-                    if (action === "check-integrity") {
+                    if (
+                      action === "check-integrity" &&
+                      !isNormalCloseInProgress()
+                    ) {
                       taskQueue.next(
                         namespacedProgram(
                           aria2,
