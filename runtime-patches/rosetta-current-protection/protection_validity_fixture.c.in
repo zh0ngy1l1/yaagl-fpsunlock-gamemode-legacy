@@ -1,0 +1,125 @@
+/* Host-only protection validity review. Helper and conversion bodies are
+ * extracted unchanged from hash-pinned Wine source/patches. The actual native
+ * protection operation is mocked; no operating-system memory API is called. */
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+typedef void *HANDLE;
+typedef uint32_t DWORD;
+typedef uint32_t NTSTATUS;
+typedef size_t SIZE_T;
+typedef uint8_t BYTE;
+typedef int BOOL;
+enum { PAGE_NOACCESS=1, PAGE_READONLY=2, PAGE_READWRITE=4, PAGE_WRITECOPY=8,
+       PAGE_EXECUTE=0x10, PAGE_EXECUTE_READ=0x20, PAGE_EXECUTE_READWRITE=0x40,
+       PAGE_EXECUTE_WRITECOPY=0x80, PAGE_GUARD=0x100, PAGE_NOCACHE=0x200,
+       VPROT_READ=1, VPROT_WRITE=2, VPROT_EXEC=4, VPROT_WRITECOPY=8, VPROT_GUARD=0x10,
+       SEC_NOCACHE=0x10000000, MemoryBasicInformation=0 };
+#define STATUS_SUCCESS UINT32_C(0)
+#define STATUS_INVALID_PAGE_PROTECTION UINT32_C(0xc0000045)
+typedef struct { void *BaseAddress,*AllocationBase; DWORD AllocationProtect; uint16_t PartitionId;
+    SIZE_T RegionSize; DWORD State,Protect,Type; } MEMORY_BASIC_INFORMATION;
+@@CONVERSION_TABLE@@
+@@GET_WIN32_PROT@@
+@@GET_VPROT_FLAGS@@
+static struct state { DWORD allocation,current,requested[2]; NTSTATUS status[2]; int queries,calls; } m;
+static void need(int ok, const char *message) { if (!ok) { fprintf(stderr,"FAIL: %s\n",message); exit(1); } }
+static int is_apple_silicon(void) { return 1; }
+static NTSTATUS NtQueryVirtualMemory(HANDLE process, const void *addr, int kind,
+                                    MEMORY_BASIC_INFORMATION *info, SIZE_T len, SIZE_T *ret)
+{
+    need(process==(HANDLE)0x99 && addr==(void*)0x1452b4244 && kind==MemoryBasicInformation && len==48,
+         "helper query ABI in mock");
+    m.queries++;
+    *info=(MEMORY_BASIC_INFORMATION){.AllocationProtect=m.allocation,.Protect=m.current};
+    *ret=sizeof(*info); return 0;
+}
+static NTSTATUS NtProtectVirtualMemory(HANDLE process, void **addr, SIZE_T *size, DWORD requested, DWORD *old)
+{
+    need(process==(HANDLE)0x99 && addr && size && old && m.calls<2,"helper protection arguments");
+    int index=m.calls++; unsigned vprot;
+    m.requested[index]=requested;
+    m.status[index]=get_vprot_flags(requested,&vprot,1);
+    if (m.status[index]) {
+        /* Exact target-failure result behavior of remote NtProtectVirtualMemory
+         * from the pinned source: old_prot = PAGE_NOACCESS (line5504). */
+        *old=PAGE_NOACCESS; return m.status[index];
+    }
+    *old=m.current; m.current=requested;
+    *addr=(void*)((uintptr_t)*addr & ~(uintptr_t)4095); *size=4096;
+    return 0;
+}
+#define toggle_executable_pages_for_rosetta legacy_toggle
+@@LEGACY_HELPER@@
+#undef toggle_executable_pages_for_rosetta
+#define toggle_executable_pages_for_rosetta v1_toggle
+@@V1_HELPER@@
+#undef toggle_executable_pages_for_rosetta
+#define toggle_executable_pages_for_rosetta corrected_toggle
+@@CORRECTED_HELPER@@
+#undef toggle_executable_pages_for_rosetta
+static struct state invoke(int corrected, DWORD allocation, DWORD current)
+{
+    memset(&m,0,sizeof(m)); m.allocation=allocation; m.current=current;
+    if(corrected==2) corrected_toggle((HANDLE)0x99,(void*)0x1452b4244,4);
+    else if(corrected==1) v1_toggle((HANDLE)0x99,(void*)0x1452b4244,4);
+    else legacy_toggle((HANDLE)0x99,(void*)0x1452b4244,4);
+    return m;
+}
+static void print_state(struct state s)
+{
+    printf("{\"queries\":%d,\"protect_calls\":%d,\"requests\":[%u,%u],\"statuses\":[%u,%u],\"final_protect\":%u}",
+           s.queries,s.calls,s.requested[0],s.requested[1],s.status[0],s.status[1],s.current);
+}
+int main(void)
+{
+    unsigned vprot;
+    need(get_vprot_flags(0x100,&vprot,1)==STATUS_INVALID_PAGE_PROTECTION,"bare guard has invalid zero base");
+    need(get_vprot_flags(0x200,&vprot,1)==STATUS_INVALID_PAGE_PROTECTION,"bare nocache has invalid zero base");
+    need(get_vprot_flags(0x180,&vprot,1)==0,"executable copy-on-write plus guard is accepted by base validator");
+    BYTE allocation_vprot=VPROT_EXEC|VPROT_READ|VPROT_WRITECOPY;
+    BYTE current_vprot=allocation_vprot|VPROT_GUARD;
+    DWORD allocation=get_win32_prot(allocation_vprot,allocation_vprot);
+    DWORD current=get_win32_prot(current_vprot,allocation_vprot);
+    need(allocation==0x80 && current==0x180,"actual query converters yield per-page guard mismatch");
+    struct state old_guard=invoke(0,allocation,current), v1_guard=invoke(1,allocation,current), new_guard=invoke(2,allocation,current);
+    need(old_guard.calls==2 && old_guard.requested[0]==1 && old_guard.status[0]==0 &&
+         old_guard.status[1]==0 && old_guard.current==0x180,"legacy guard mismatch restores original protection");
+    need(v1_guard.calls==2 && v1_guard.requested[0]==0x100 &&
+         v1_guard.status[0]==STATUS_INVALID_PAGE_PROTECTION && v1_guard.requested[1]==1 &&
+         v1_guard.status[1]==0 && v1_guard.current==1,"V1 guard mismatch negative control remains reproduced");
+    need(new_guard.calls==2 && new_guard.requested[0]==0x108 && new_guard.requested[1]==0x180 &&
+         new_guard.status[0]==0 && new_guard.status[1]==0 && new_guard.current==0x180,
+         "V2 guard mismatch derives valid guarded copy-on-write and restores original executable protection");
+    const DWORD input_base[]={0x10,0x20,0x40,0x80};
+    const DWORD expected_base[]={1,2,4,8};
+    const DWORD modifier[]={0,0x100,0x200,0x400,0x40000000};
+    unsigned mapping_cases=0;
+    for(size_t i=0;i<4;i++) for(size_t j=0;j<5;j++) {
+        DWORD current_protection=input_base[i]|modifier[j];
+        struct state state=invoke(2,0x80,current_protection);
+        need(state.calls==2 && state.requested[0]==(expected_base[i]|modifier[j]) &&
+             state.status[0]==0 && state.status[1]==0 && state.current==current_protection,
+             "V2 access mapping and high modifier bits pass extracted native validator");
+        mapping_cases++;
+    }
+    struct state old_data=invoke(0,0x80,8), new_data=invoke(2,0x80,8);
+    need(old_data.calls==2 && old_data.current==8 && new_data.calls==0 && new_data.current==8,
+         "targeted data-page correction still demonstrated");
+    struct state old_exec=invoke(0,0x80,0x80), new_exec=invoke(2,0x80,0x80);
+    need(old_exec.calls==2 && new_exec.calls==2 && old_exec.current==0x80 && new_exec.current==0x80,
+         "unmodified executable base remains supported");
+    DWORD nc_allocation=get_win32_prot(allocation_vprot,allocation_vprot|SEC_NOCACHE);
+    DWORD nc_current=get_win32_prot(VPROT_READ|VPROT_WRITE|VPROT_EXEC,allocation_vprot|SEC_NOCACHE);
+    need(nc_allocation==0x280 && nc_current==0x240,"nocache derives from mapping for both query fields");
+    printf("{\"v1_guard_mismatch_regression_reproduced\":true,\"v2_guard_mismatch_regression_fixed\":true,\"query_allocation\":%u,\"query_current\":%u,\"legacy\":",allocation,current);
+    print_state(old_guard); printf(",\"v1\":");print_state(v1_guard); printf(",\"v2\":");print_state(new_guard);
+    printf(",\"valid_executable_mapping_cases\":%u",mapping_cases);
+    printf(",\"data_page_correction_control_passed\":true,\"equal_executable_control_passed\":true,"
+           "\"nocache_pairing_caveat\":\"Matching converters pair current0x240 with allocation0x280 when the map is nocache; allocation0x80/current0x240 is synthetic.\","
+           "\"get_vprot_flags_and_query_conversions_from_pinned_source\":true,\"native_protection_operation_mocked\":true,"
+           "\"wine_executed\":false,\"game_executed\":false,\"historical_crash_causality_established\":false}\n");
+    return 0;
+}

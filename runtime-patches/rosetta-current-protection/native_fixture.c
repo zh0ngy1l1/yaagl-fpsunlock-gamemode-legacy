@@ -1,7 +1,7 @@
 /* Native host fixture: no Wine library, process attachment or game execution.
  * The helper bodies included below are extracted byte-for-byte as C source
- * from the matching downstream patch. Only the corrected body substitutes
- * info.Protect for both info.AllocationProtect references. All native APIs
+ * from the matching downstream patch. The corrected body applies the submitted
+ * current-protection predicate and non-executable access mapping. All native APIs
  * below are deterministic mocks, not imports or process-memory operations.
  */
 #include <inttypes.h>
@@ -35,14 +35,23 @@ enum { MemoryBasicInformation = 0, PAGE_NOACCESS = 1 };
 #define PROCESS ((HANDLE)(uintptr_t)0x99)
 #define STATUS_ACCESS_DENIED UINT32_C(0xc0000022)
 #define STATUS_PARTIAL_COPY UINT32_C(0x8000000d)
+#define STATUS_SUCCESS UINT32_C(0)
+#define STATUS_INVALID_PAGE_PROTECTION UINT32_C(0xc0000045)
+typedef int BOOL;
+enum { PAGE_READONLY=2, PAGE_READWRITE=4, PAGE_WRITECOPY=8, PAGE_EXECUTE=0x10,
+       PAGE_EXECUTE_READ=0x20, PAGE_EXECUTE_READWRITE=0x40, PAGE_EXECUTE_WRITECOPY=0x80,
+       PAGE_GUARD=0x100, VPROT_READ=1, VPROT_WRITE=2, VPROT_EXEC=4,
+       VPROT_WRITECOPY=8, VPROT_GUARD=0x10 };
+#include "wine-protection.inc"
 
 struct mock {
     MEMORY_BASIC_INFORMATION info;
     uint8_t page[4096], initial_neighbor[8];
-    NTSTATUS query_status, restore_status;
+    NTSTATUS query_status, first_protect_status, restore_status;
     int translated, pending_probe, query_calls, protect_calls;
     int fps_probe_faults, neighbor_probe_faults, query_wrong_process;
     DWORD requested[2];
+    NTSTATUS protection_status[2];
     uintptr_t protected_address[2];
     size_t protected_size[2];
     DWORD current_protect;
@@ -94,7 +103,24 @@ static NTSTATUS NtProtectVirtualMemory(HANDLE process, void **address, SIZE_T *s
     m.protected_address[index] = (uintptr_t)*address;
     m.protected_size[index] = *size;
     *original = m.current_protect;
-    if (index == 1 && m.restore_status) return m.restore_status;
+    if (index == 0 && m.first_protect_status) {
+        /* Matching Wine remote APC target failure defines old protection as
+         * PAGE_NOACCESS. Queue failure leaves it untouched and is not run. */
+        *original = PAGE_NOACCESS;
+        m.protection_status[index] = m.first_protect_status;
+        return m.first_protect_status;
+    }
+    unsigned vprot;
+    m.protection_status[index] = get_vprot_flags(requested, &vprot, 1);
+    if (m.protection_status[index]) {
+        *original = PAGE_NOACCESS;
+        return m.protection_status[index];
+    }
+    if (index == 1 && m.restore_status) {
+        *original = PAGE_NOACCESS;
+        m.protection_status[index] = m.restore_status;
+        return m.restore_status;
+    }
     m.current_protect = requested;
     /* Model the page rounding in NtProtectVirtualMemory, not a real protection call. */
     uintptr_t start = (uintptr_t)*address;
@@ -161,6 +187,8 @@ static struct outcome write_then_helper(int corrected, int32_t target,
     return result;
 }
 
+#include "native_extra.inc"
+
 static void self_test(void)
 {
     for (int target = 61; target <= 360; target++) {
@@ -201,29 +229,31 @@ static void self_test(void)
         low_payload_cases++;
     }
     const DWORD executable[] = { 0x10, 0x20, 0x40, 0x80 };
+    const DWORD nonexecutable_access[] = { PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY };
     const DWORD modifiers[] = { 0, 0x100, 0x200, 0x400, 0x40000000 };
     for (size_t p = 0; p < sizeof(executable)/sizeof(*executable); p++)
         for (size_t f = 0; f < sizeof(modifiers)/sizeof(*modifiers); f++) {
             DWORD prot = executable[p] | modifiers[f];
             reset(prot, prot, 60); struct outcome old = write_then_helper(0, 160, 0, 4);
             reset(prot, prot, 60); struct outcome now = write_then_helper(1, 160, 0, 4);
-            check(old.protects == now.protects && old.first_request == now.first_request &&
-                  old.final_protect == now.final_protect && now.final_protect == prot,
-                  "same executable current/allocation protections retain exact original behavior");
+            check(old.protects == 2 && now.protects == 2 &&
+                  now.first_request == (nonexecutable_access[p] | modifiers[f]) && now.final_protect == prot &&
+                  m.protection_status[0] == 0 && m.protection_status[1] == 0,
+                  "current executable access maps to corresponding valid nonexec base and restores modifiers");
             protection_cases++;
         }
     /* Differing executable current protection: current region, not allocation metadata,
      * supplies both the predicate and preserved non-executable modifier bits. */
     reset(0x80, 0x240, 60); struct outcome mixed = write_then_helper(1, 160, 0, 4);
-    check(mixed.protects == 2 && mixed.first_request == 0x200 && mixed.final_protect == 0x240,
+    check(mixed.protects == 2 && mixed.first_request == 0x204 && mixed.final_protect == 0x240,
           "corrected actual executable page preserves its own modifier bits");
     reset(8, 0x40, 60); mixed = write_then_helper(1, 160, 0, 4);
-    check(mixed.protects == 2 && mixed.first_request == PAGE_NOACCESS && mixed.final_protect == 0x40,
+    check(mixed.protects == 2 && mixed.first_request == PAGE_READWRITE && mixed.final_protect == 0x40,
           "actual executable page still invalidates when its allocation was nonexecutable");
     reset(4, 0x20, 60); struct outcome opposite_old = write_then_helper(0, 160, 0, 4);
     reset(4, 0x20, 60); struct outcome opposite_now = write_then_helper(1, 160, 0, 4);
     check(opposite_old.protects == 0 && opposite_now.protects == 2 &&
-          opposite_now.first_request == PAGE_NOACCESS && opposite_now.final_protect == 0x20,
+          opposite_now.first_request == PAGE_READONLY && opposite_now.final_protect == 0x20,
           "allocation RW/current executable-read mismatch now receives intended invalidation");
     for (DWORD prot = 1; prot <= 8; prot <<= 1)
         for (size_t f = 0; f < sizeof(modifiers)/sizeof(*modifiers); f++) {
@@ -257,8 +287,8 @@ static void self_test(void)
           "data correction removes exposure to both protection calls and restoration errors");
     reset(0x80, 0x80, 60); m.restore_status = STATUS_ACCESS_DENIED;
     result = write_then_helper(1, 160, 0, 4);
-    check(result.status == 0 && result.final_protect == PAGE_NOACCESS,
-          "residual executable-page ignored restoration error remains explicitly demonstrated");
+    check(result.status == 0 && result.final_protect == PAGE_WRITECOPY && !(result.final_protect & 0xf0),
+          "residual executable-page ignored restoration error can leave execution disabled");
     reset(0x80, 8, 60);
     result = write_then_helper(1, 160, STATUS_ACCESS_DENIED, 0);
     check(result.status == STATUS_ACCESS_DENIED && result.bytes == 0 && result.value == 60 && !result.protects,
@@ -267,10 +297,11 @@ static void self_test(void)
     result = write_then_helper(1, 360, STATUS_PARTIAL_COPY, 2);
     check(result.status == STATUS_PARTIAL_COPY && result.bytes == 2 && result.value == 0x12340168 && !result.protects,
           "partial byte transfer is modeled faithfully and retains partial status");
-    printf("{\"checks\":%u,\"distinct_targets\":%u,\"zero_through_60_payload_cases\":%u,\"protection_cases\":%u,\"status_cases\":%u,"
+    review_tests();
+    printf("{\"review_matrix_cases\":%u,\"refreshed_query_cases\":%u,\"defined_first_protect_failure_cases\":%u,\"checks\":%u,\"distinct_targets\":%u,\"zero_through_60_payload_cases\":%u,\"protection_cases\":%u,\"status_cases\":%u,"
            "\"source_helper_executed\":true,\"native_interfaces_mocked\":true,\"wine_executed\":false,"
            "\"game_executed\":false,\"historical_interleaving_recovered\":false}\n",
-           checks, target_cases, low_payload_cases, protection_cases, status_cases);
+           review_matrix_cases, review_query_cases, review_first_failure_cases, checks, target_cases, low_payload_cases, protection_cases, status_cases);
 }
 
 static int batch(void)
