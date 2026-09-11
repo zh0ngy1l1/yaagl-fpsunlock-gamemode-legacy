@@ -1,0 +1,13 @@
+{
+  "archive": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/automatic-candidate-preparation/prepared/foreground-control/runs/20260910-095434-344293/20260910-095434-454098-pre-activation/evidence/support/logs/hoyoplay_genshin_fps_unlocker.log",
+  "archive_sha256": "7bdf0268a8e48e596d7ef23f7277631cc3b29f819c4702fe43ca098dd1c62a0b",
+  "slice_start": 0,
+  "slice_end": 3277,
+  "fixture_sha256": "89863f6c33ff3e1ccc528628e56d1e23151b49a19bec8daff6c3a1d2d827ab1e",
+  "fixture_bytes": 3277,
+  "release_source": "/Users/david/Library/Application Support/YAAGL FPS Diagnostic/unlocker-memory-audit-v3.0.7/source/Services/GameInstanceService.cs",
+  "release_source_sha256": "4c3136ac577d0e421a5db12279204694a48a22d2cd29d2cbf71b96dd1d3a0ddb",
+  "release_commit": "56b9c64381ef9fd59e916dc9bf547d3210ab5db1",
+  "ordinary_companion_sha256": "8543f45a4edced854ab8c5466ce2dc2e511fb4f89361bc4dfb474b68d998cc17",
+  "limit": "Recorded production-format log replay only; no new run or amended historical acceptance verdict."
+}

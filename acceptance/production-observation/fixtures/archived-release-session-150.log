@@ -1,0 +1,47 @@
+----- Wed Sep  9 21:07:47 EDT 2026 -----
+WINE=/Users/david/Library/Application Support/Yaagl OS/hoyoplay-wines/genshin/11.0-dxmt-signed-with-patches/wine/bin/wine
+WINEPREFIX=/Users/david/Library/Application Support/Yaagl OS/wineprefix
+DXMT_CONFIG=d3d11.preferredMaxFrameRate=150;
+DXMT_CONFIG_FILE=/Users/david/Library/Application Support/Yaagl OS/dxmt.conf
+DXMT_LOG_PATH=/Users/david/Library/Application Support/Yaagl OS/
+GST_PLUGIN_FEATURE_RANK=atdec:MAX,avdec_h264:MAX
+MTL_HUD_ENABLED=1
+WINEESYNC=1
+WINEPREFIX=/Users/david/Library/Application Support/Yaagl OS/wineprefix
+WINE_ENABLE_TIMEOUT_FIX=1
+Waiting for Genshin process...
+Genshin process detected.
+Waiting for game initialization before starting unlocker...
+Starting unlockfps.exe with target 150...
+02f0:fixme:file:GetTempPath2W (261, 000000000029F250) semi-stub
+02f0:fixme:process:GetProcessGroupAffinity (FFFFFFFFFFFFFFFF,000000000029F2B0,0000000000000000): stub
+02f0:fixme:heap:GetNumaHighestNodeNumber semi-stub: 000000000029F2B0
+02f0:fixme:process:GetProcessGroupAffinity (FFFFFFFFFFFFFFFF,000000000029F2B0,0000000000000000): stub
+02f0:fixme:seh:WerRegisterRuntimeExceptionModule (L"C:\\fps-unlocker\\mscordaccore.dll", 0000000140000000) stub
+02f0:fixme:thread:set_native_thread_name setting other thread name not supported
+02f0:fixme:ntdll:NtQuerySystemInformation info_class SYSTEM_PERFORMANCE_INFORMATION
+Starting in headless mode with FPS limit: 150
+02f0:fixme:unwind:call_user_apc_dispatcher flags 0x3 are not supported.
+0320:fixme:ntdll:NtQuerySystemInformation SystemLeapSecondInformation - stub
+031c:fixme:ntdll:RtlGetCurrentProcessorNumberEx (0000000027DEED98) :semi-stub
+[21:07:59.088] INFO WineHelper: Wine version: 11.0
+[21:07:59.220] INFO WineHelper: Wine build id: wine-11.0
+[21:07:59.221] INFO GameInstanceService: [HWND SynchronizationContext] Attempting to find game window (Timer Mode)
+[21:07:59.222] INFO GameInstanceService: Trying to get main module information...
+[21:07:59.222] INFO GameInstanceService: Get main module information successfully.
+[21:07:59.222] INFO GameInstanceService: Trying to get FPS address...
+[21:07:59.813] DEBUG FpsPatterns: Found 22 FPS pattern candidate(s) in il2cpp.
+[21:07:59.817] DEBUG FpsPatterns: Resolved FPS address: local=0x0000007009EB429C, remote=0x00000001452B4244
+[21:07:59.819] INFO GameInstanceService: Get FPS address successfully: 5455430212
+[21:07:59.819] INFO GameInstanceService: Find the game window: [0x0000000000030076 UnityWndClass] (200 GenshinImpact.exe) Genshin Impact
+[21:07:59.819] INFO GameInstanceService: Start applying FPS.
+Waiting for game...
+[21:07:59.828] INFO GameInstanceService: Game window is now active.
+[21:07:59.831] INFO GameInstanceService: FPS Override: -1 -> 150
+[21:08:03.655] INFO GameInstanceService: FPS Override: 60 -> 150
+[21:08:04.057] INFO GameInstanceService: FPS Override: 60 -> 150
+0344:fixme:thread:NtQueryInformationThread ThreadIsIoPending info class not supported yet
+0338:fixme:thread:NtQueryInformationThread ThreadIsIoPending info class not supported yet
+[21:08:51.965] INFO GameInstanceService: FPS Override: 60 -> 150
+0334:fixme:thread:NtQueryInformationThread ThreadIsIoPending info class not supported yet
+[21:09:21.013] INFO GameInstanceService: Game window is now inactive.

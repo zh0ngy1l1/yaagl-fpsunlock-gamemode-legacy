@@ -1,0 +1,69 @@
+{
+  "profile": "ordinary-product-observation-offline",
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/swiftc",
+        "-O",
+        "PassiveForeground.swift",
+        "-o",
+        "PassiveForeground"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/david/code/home/yaagl-universal-runtime-candidate/acceptance/production-observation/PassiveForeground",
+        "--self-test"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"suite\":\"passive-foreground-pure-model\",\"checks\":13,\"failures\":0,\"native_observation_executed\":false}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+        "-m",
+        "unittest",
+        "-v",
+        "test_production_evidence.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_archived_release_format (test_production_evidence.LogTests.test_archived_release_format) ... ok\ntest_changed_inode (test_production_evidence.LogTests.test_changed_inode) ... ok\ntest_diagnostic_companion (test_production_evidence.LogTests.test_diagnostic_companion) ... ok\ntest_disabled_no_companion_cannot_claim_write (test_production_evidence.LogTests.test_disabled_no_companion_cannot_claim_write) ... ok\ntest_duplicate_companion (test_production_evidence.LogTests.test_duplicate_companion) ... ok\ntest_duplicate_headless (test_production_evidence.LogTests.test_duplicate_headless) ... ok\ntest_duplicate_session (test_production_evidence.LogTests.test_duplicate_session) ... ok\ntest_enabled_below_or_equal_60_uses_same_log_path (test_production_evidence.LogTests.test_enabled_below_or_equal_60_uses_same_log_path) ... ok\ntest_environment_mismatch (test_production_evidence.LogTests.test_environment_mismatch) ... ok\ntest_equality (test_production_evidence.LogTests.test_equality) ... ok\ntest_malformed_success (test_production_evidence.LogTests.test_malformed_success) ... ok\ntest_mismatched_target (test_production_evidence.LogTests.test_mismatched_target) ... ok\ntest_no_successful_write (test_production_evidence.LogTests.test_no_successful_write) ... ok\ntest_partial_lines (test_production_evidence.LogTests.test_partial_lines) ... ok\ntest_release_branch_evidence_for_each_target (test_production_evidence.LogTests.test_release_branch_evidence_for_each_target) ... ok\ntest_second_attachment (test_production_evidence.LogTests.test_second_attachment) ... ok\ntest_snapshot_roundtrip_and_exclusive_output (test_production_evidence.LogTests.test_snapshot_roundtrip_and_exclusive_output) ... ok\ntest_truncated_prefix (test_production_evidence.LogTests.test_truncated_prefix) ... ok\ntest_unscoped_existing_write_not_reused (test_production_evidence.LogTests.test_unscoped_existing_write_not_reused) ... ok\ntest_write_after_stop (test_production_evidence.LogTests.test_write_after_stop) ... ok\ntest_write_before_attachment (test_production_evidence.LogTests.test_write_before_attachment) ... ok\ntest_wrong_address (test_production_evidence.LogTests.test_wrong_address) ... ok\ntest_wrong_game (test_production_evidence.LogTests.test_wrong_game) ... ok\ntest_backward_clock (test_production_evidence.NativeTests.test_backward_clock) ... ok\ntest_forged_footer_cannot_hide_focus_loss (test_production_evidence.NativeTests.test_forged_footer_cannot_hide_focus_loss) ... ok\ntest_forged_footer_cannot_hide_second_activation (test_production_evidence.NativeTests.test_forged_footer_cannot_hide_second_activation) ... ok\ntest_heartbeat_gap (test_production_evidence.NativeTests.test_heartbeat_gap) ... ok\ntest_identity_reuse (test_production_evidence.NativeTests.test_identity_reuse) ... ok\ntest_missing_birth_identity (test_production_evidence.NativeTests.test_missing_birth_identity) ... ok\ntest_missing_footer (test_production_evidence.NativeTests.test_missing_footer) ... ok\ntest_nonheartbeat_snapshot_can_disprove_foreground_span (test_production_evidence.NativeTests.test_nonheartbeat_snapshot_can_disprove_foreground_span) ... ok\ntest_observer_failure_survives_good_footer (test_production_evidence.NativeTests.test_observer_failure_survives_good_footer) ... ok\ntest_other_activation_cannot_hide_behind_matching_snapshot (test_production_evidence.NativeTests.test_other_activation_cannot_hide_behind_matching_snapshot) ... ok\ntest_recorded_other_activation_between_heartbeats (test_production_evidence.NativeTests.test_recorded_other_activation_between_heartbeats) ... ok\ntest_sequence_gap (test_production_evidence.NativeTests.test_sequence_gap) ... ok\ntest_terminal_departure_allowed (test_production_evidence.NativeTests.test_terminal_departure_allowed) ... ok\n\n----------------------------------------------------------------------\nRan 36 tests in 0.024s\n\nOK\n"
+    }
+  ],
+  "files": {
+    "PassiveForeground.swift": {
+      "sha256": "4df5e0c9162e709c33e0fc52eddfebdb1224862e49d63c827a2b517b9432453b",
+      "bytes": 16433
+    },
+    "PassiveForeground": {
+      "sha256": "c8aaeedba75743fa6c28a89352dfb5e49c203be832f85d1e33289fa2bfda5be5",
+      "bytes": 156160
+    },
+    "production_evidence.py": {
+      "sha256": "0606c07a64678418e0f18074132241de0ef239e720e64fa8fc119ffc0f72a5a6",
+      "bytes": 13463
+    },
+    "test_production_evidence.py": {
+      "sha256": "8b99b71a27ab408d995bebcfa9111aa16f1fc82671f9eaeefa6d374f94723da1",
+      "bytes": 12900
+    },
+    "verify_offline.py": {
+      "sha256": "b942cc03f04fcb459f1c79884df86ab4fbad8ecdf7d5cbb927d98e1841790848",
+      "bytes": 2140
+    },
+    "README.md": {
+      "sha256": "5f7d5605127caddbe80da42aabbba0d9babe7244ef61f2f73bf94d352028e966",
+      "bytes": 13208
+    }
+  },
+  "success": true,
+  "native_model_checks": 13,
+  "python_test_methods": 36,
+  "distinct_target_log_cases": 300,
+  "limits": "No game, Wine, runtime candidate, live observer or screen recording executed. Target parsing is not runtime reliability evidence."
+}
