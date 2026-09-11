@@ -68,3 +68,36 @@ Frozen staging input hashes and disposable outside sentinels are checked. These
 checks, restricted mutation paths and the separate protected-product snapshots
 bound the unchanged-product claim; they are not a global machine-wide proof that
 no unrelated process changed any filesystem object.
+
+## Phase-aware directory guard regression
+
+`run_nlink_review.py` runs the focused staging-directory tests plus the directly
+relevant existing parent, temporary, recovery and normalization checks. It uses
+the same three path arguments as `run_audit.py` and requires a fresh disposable
+output. The updated normalization fixtures explicitly include parent `nlink` and
+verified temporary records; a phase name alone no longer stands in for ownership.
+
+`test_nlink_guard.py` supplies a native, descriptor-bound disposable inventory to
+the actual production normalization, sealed temporary-ledger reader and final
+bound-parent verifier. Its full prepare/deploy/restore round trip therefore tests
+the guard/core integration that the earlier blank-guard core rehearsals omitted.
+The APFS parent must show exactly one extra link and 32 extra bytes while its own
+verified temporary exists, and return to the baseline after replacement. No
+actual product admission or installation is available to this fixture.
+
+The focused tests reject missing/substituted/unowned temporaries, foreign entries,
+missing baseline entries, and a foreign addition that cancels a missing baseline
+entry's count. They challenge both excessive and missing staging `nlink` effects,
+post-replacement drift, and a foreign entry introduced at the final bound-parent
+check. Actual disposable mode, flags, xattr and ACL mutations reach that verifier;
+UID/GID/device substitutions are explicitly labeled snapshot mutations. The
+selected existing tests retain native late-parent-redirection and durable
+recovery coverage.
+
+Recorded correction validation is under
+`nlink-fix-20260911T133040929939Z/focused-002/RESULTS.json`: 35 passing focused
+checks, with a separate 12 passing existing adapter-addendum checks in
+`final-adapter-addendum-001/RESULTS.json`. `focused-001` remains a failed test run:
+34 checks passed and the native ACL test's unsupported numeric `chmod` principal
+caused a fixture error. The fixture was corrected to use the account name before
+the fresh successful run. Neither that error nor its archived source is erased.

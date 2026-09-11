@@ -6,7 +6,7 @@ transaction. It never calls its preflight/save/copy/install entry points. No liv
 admission record is created here; the only CLI operation is read-only verification.
 """
 from __future__ import annotations
-import argparse, copy, hashlib, json, os, re, sys, types
+import argparse, copy, hashlib, json, os, re, stat, sys, types
 from pathlib import Path
 sys.dont_write_bytecode=True
 import transaction as core
@@ -36,15 +36,18 @@ def pinned_read(path,digest):
     core.require(snapshot['sha256']==digest,'Protected adapter dependency hash mismatch: '+str(path))
     return raw
 
-def normalize(snapshot,transaction_id,allowed_phases=frozenset()):
-    """Only the reviewed slot and the two exact owned temporary names may vary.
+def normalize(snapshot,transaction_id,owned_temporaries=None):
+    """Only the reviewed slot and one verified, ledger-owned temporary may vary.
 
-    APFS directory size counts 32 bytes per entry on this reviewed machine. A
-    temporary increases the parent size by exactly one entry; retain that guard,
-    rather than ignore directory size wholesale. Parent mtime/ctime naturally
-    advance on entry changes. No other directory metadata is normalized.
+    The reviewed APFS experiment establishes +32 size and +1 nlink for one
+    regular-file entry, both reversed on removal. Account for precisely that
+    staging effect; after replacement neither allowance remains. Parent entry
+    mtime/ctime advance naturally. All other metadata and tree entries remain.
     """
     core.require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,99}',transaction_id) is not None,'Unsupported transaction ID')
+    owned_temporaries={} if owned_temporaries is None else owned_temporaries
+    core.require(isinstance(owned_temporaries,dict) and len(owned_temporaries)<=1 and
+                 set(owned_temporaries)<= {'deploy','restore'},'Verified temporary records required')
     value=copy.deepcopy(snapshot); tree=value['runtime_tree']
     core.require(LIB_RELATIVE in tree and PARENT_RELATIVE in tree,'Selected runtime slot or parent absent from inventory')
     library=tree.pop(LIB_RELATIVE)
@@ -52,13 +55,18 @@ def normalize(snapshot,transaction_id,allowed_phases=frozenset()):
     removed=[]
     for phase,digest in (('deploy',core.CANDIDATE),('restore',core.ORIGINAL)):
         name=PARENT_RELATIVE+'/.ntdll-'+transaction_id+'-'+phase+'.tmp'
+        core.require(phase not in owned_temporaries or name in tree,'Verified staged temporary missing from inventory')
         if name in tree:
-            core.require(phase in allowed_phases,'Unowned or out-of-phase runtime temporary')
+            core.require(phase in owned_temporaries,'Unowned or out-of-phase runtime temporary')
             temp=tree.pop(name)
-            core.require(temp.get('sha256')==digest and temp['stat']['size']==core.SIZE and temp['stat']['nlink']==1,'Invalid owned temporary in protected inventory')
+            owned=owned_temporaries[phase]; core.check_identity(owned,digest)
+            core.require(stat.S_ISREG(owned['stat']['mode']) and temp.get('sha256')==digest and
+                         all(owned['stat'].get(k)==v for k,v in temp['stat'].items()) and
+                         temp['xattrs']==owned['xattrs'],'Owned temporary inventory differs from verified inode or metadata')
             removed.append(name)
     parent=tree[PARENT_RELATIVE]['stat']
     parent['size']-=32*len(removed)
+    parent['nlink']-=len(removed)
     parent.pop('mtime_ns'); parent.pop('ctime_ns')
     return value
 
@@ -87,29 +95,82 @@ class ProtectedGuard:
         for name,digest in HELPER_HASHES.items(): pinned_read(HELPERS/name,digest)
         self.old.initialize()  # Also verifies frozen source worktrees/artifact manifest.
         snapshot=self.old.snapshot(self.evidence,self.permanent)
-        normalized=normalize(snapshot,self.transaction_id,allowed_temporary_phases(self.transaction_root) if self.transaction_root else frozenset())
+        normalized=normalize(snapshot,self.transaction_id,owned_temporary_records(self.transaction_root) if self.transaction_root else None)
         core.require(normalized==self.normalized_expected,'Protected product differs from the immutable pre-deployment baseline')
         return normalized
+    def verify_bound_parent(self,parent_fd):
+        core.require(self.transaction_root is not None,'Bound production check requires a transaction')
+        _,raw=core.inspect_document(self.transaction_root/'admission.json'); admission=json.loads(raw)
+        parent=Path(admission['slot']).parent
+        verify_parent_snapshot(parent_fd,parent,self.expected,owned_temporary_records(self.transaction_root),
+                               admission['parent_bindings'][str(parent)]['acl'])
 
-def allowed_temporary_phases(root):
-    # A name/hash alone never establishes ownership. Require the fresh admission
-    # and durable stage ledger; exclusive creation/inode checks remain in the core.
+def owned_temporary_records(root):
+    # Plans cannot establish ownership. The core seals the verified full instance
+    # and its O_EXCL copy lineage before any staging-state guard is evaluated.
     root=Path(root); _,admission_raw=core.inspect_document(root/'admission.json')
     admission=json.loads(admission_raw); admission_hash=core.sha(admission_raw)
     core.require(admission['root']==str(root) and admission['transaction_id']==root.name,'Temporary admission binding mismatch')
-    journal=root/'journal'; result=set()
+    journal=root/'journal'; result={}
+    def load(name):
+        snapshot,raw=core.inspect_document(journal/name)
+        core.require(snapshot['stat']['nlink']==1,'Temporary ledger must be independent')
+        value=json.loads(raw); seal=value.pop('_record_seal',None)
+        core.require(seal=={'sha256':core.sha(core.canonical_json(value)),'admission_sha256':admission_hash},'Temporary stage ledger seal mismatch')
+        return value
     for phase,digest in (('deploy',core.CANDIDATE),('restore',core.ORIGINAL)):
         plan=journal/(phase+'-stage-plan.json')
-        if not plan.exists(): continue
-        _,raw=core.inspect_document(plan); value=json.loads(raw); seal=value.pop('_record_seal',None)
-        core.require(seal=={'sha256':core.sha(core.canonical_json(value)),'admission_sha256':admission_hash},'Temporary stage ledger seal mismatch')
+        verified=journal/(phase+'-stage-verified.json')
+        if not plan.exists():
+            core.require(not verified.exists(),'Verified temporary has no stage plan')
+            continue
+        value=load(plan.name)
         expected=Path(admission['slot']).parent/('.ntdll-'+root.name+'-'+phase+'.tmp')
         core.require(value['destination']==str(expected) and value['expected_hash']==digest,'Unexpected temporary stage ledger')
-        if (journal/(phase+'-complete.json')).exists() or (journal/'restored-idempotent.json').exists(): continue
-        if phase=='deploy' and (journal/'restore-stage-plan.json').exists(): continue
+        if ((journal/(phase+'-complete.json')).exists() or (journal/'restored-idempotent.json').exists() or
+            (phase=='deploy' and (journal/'restore-stage-plan.json').exists())):
+            core.require(not os.path.lexists(expected),'Completed phase cannot own a new temporary')
+            continue
         if phase=='restore': core.require((journal/'deploy-intent.json').exists(),'Restoration stage has no deployment lineage')
-        result.add(phase)
-    return frozenset(result)
+        if not verified.exists():
+            core.require(not os.path.lexists(expected),'Temporary has no verified exclusive-copy ledger')
+            continue
+        record=load(verified.name); temporary=record['temporary']; lineage=record['lineage']
+        core.require(record['phase']==phase and temporary['path']==str(expected) and temporary['resolved']==str(expected) and
+                     lineage['destination']==str(expected) and lineage['source']['path']==value['source'] and
+                     lineage['method']=='fcopyfile' and lineage['flags']==8 and
+                     all(temporary['stat'][k]==lineage['owned'][k] for k in ('dev','ino')),
+                     'Verified temporary is not the exclusively created instance')
+        core.check_identity(temporary,digest); core.required_metadata(load('00-baseline.json')['slot'],temporary)
+        if os.path.lexists(expected):
+            core.same_instance(temporary,core.inspect_file(expected)); result[phase]=temporary
+        else:
+            core.require((journal/(phase+'-intent.json')).exists(),'Verified temporary missing before replacement intent')
+            intent=load(phase+'-intent.json'); core.same_instance(temporary,intent['temporary'])
+            core.same_after_rename(temporary,core.inspect_file(Path(admission['slot'])))
+    core.require(len(result)<=1,'Multiple active runtime temporaries')
+    return result
+
+def allowed_temporary_phases(root):
+    return frozenset(owned_temporary_records(root))
+
+def verify_parent_snapshot(parent_fd,parent_path,expected_snapshot,owned_temporaries,admitted_acl):
+    """Recheck the exact staging state through the directory used for replacement."""
+    parent_path=core._safe_path(Path(parent_path)); before=core.stat_record(os.fstat(parent_fd))
+    core.require(before==core.stat_record(parent_path.lstat()),'Bound mutation parent was redirected')
+    tree=expected_snapshot['runtime_tree']; parent=tree[PARENT_RELATIVE]
+    expected=copy.deepcopy(parent['stat']); expected['size']+=32*len(owned_temporaries); expected['nlink']+=len(owned_temporaries)
+    expected.pop('mtime_ns'); expected.pop('ctime_ns')
+    core.require(all(before.get(k)==v for k,v in expected.items()),'Bound parent differs from the expected transaction phase')
+    core.require(core._xattrs_fd(parent_fd)==parent['xattrs'] and core._acl_fd(parent_fd,parent_path)==admitted_acl,
+                 'Bound parent security metadata changed')
+    names={Path(name).name for name in tree if str(Path(name).parent)==PARENT_RELATIVE}
+    for record in owned_temporaries.values():
+        path=Path(record['path']); core.require(path.parent==parent_path,'Owned temporary belongs to another parent')
+        core.same_instance(record,core.inspect_file(path)); names.add(path.name)
+    core.require(set(os.listdir(parent_fd))==names,'Unowned or missing bound-directory entry')
+    core.require(before==core.stat_record(os.fstat(parent_fd))==core.stat_record(parent_path.lstat()),
+                 'Bound parent changed during final verification')
 
 def match_historical_parents(parents):
     # Historical records contain stat identities, not serialized parent ACLs.

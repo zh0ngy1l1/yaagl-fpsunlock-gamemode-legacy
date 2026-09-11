@@ -624,13 +624,27 @@ class GuardNormalizationTests(unittest.TestCase):
                 "stat": {"size": core.SIZE, "nlink": 1}},
             self.guard.PARENT_RELATIVE: {"stat": {
                 "size": 128, "mtime_ns": 10, "ctime_ns": 20,
+                "nlink": 4, "dev": 1, "ino": 2,
                 "mode": stat.S_IFDIR | 0o755, "uid": 501, "gid": 20, "flags": 0}},
             "unrelated.dll": {"sha256": "preserved runtime component"}},
             "settings": {"target": 160, "enabled": True},
             "prefix_identity": {"dev": 1, "ino": 2}}
 
-    def normalized(self, value, allowed_phases=frozenset()):
-        return self.guard.normalize(value, "review-test-001", allowed_phases)
+    def normalized(self, value, owned_temporaries=None):
+        return self.guard.normalize(value, "review-test-001", owned_temporaries)
+
+    def temporary(self, phase="deploy"):
+        # Synthetic normalization-only record. Native sealed ledger/copy/signature
+        # ownership is exercised separately by test_nlink_guard's actual replicas.
+        name = "/disposable/runtime/.ntdll-review-test-001-" + phase + ".tmp"
+        return {"path": name, "resolved": name,
+                "sha256": core.CANDIDATE if phase == "deploy" else core.ORIGINAL,
+                "stat": {"size": core.SIZE, "nlink": 1, "dev": 1, "ino": 3,
+                         "mode": stat.S_IFREG | 0o755, "uid": 501, "gid": 20,
+                         "flags": 0, "mtime_ns": 10, "ctime_ns": 20},
+                "xattrs": {core.PROVENANCE: core.GENERATED_PROVENANCE},
+                "acl": {"state": "absent", "errno": 2},
+                "signature": {"verified": True}}
 
     def test_exact_library_delta_normalizes(self):
         before = self.snapshot(); after = copy.deepcopy(before)
@@ -647,27 +661,31 @@ class GuardNormalizationTests(unittest.TestCase):
         name = self.guard.PARENT_RELATIVE + "/.ntdll-review-test-001-deploy.tmp"
         for field, value in (("sha256", "wrong"), ("size", core.SIZE - 1), ("nlink", 2)):
             changed = copy.deepcopy(original)
-            temp = {"sha256": core.CANDIDATE, "stat": {"size": core.SIZE, "nlink": 1}}
+            temp = self.temporary()
+            owned = copy.deepcopy(temp)
             if field == "sha256": temp[field] = value
             else: temp["stat"][field] = value
             changed["runtime_tree"][name] = temp
             changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["size"] += 32
-            with self.assertRaises(core.Stop): self.normalized(changed, frozenset({"deploy"}))
+            changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["nlink"] += 1
+            with self.assertRaises(core.Stop): self.normalized(changed, {"deploy": owned})
 
     def test_exact_known_temporary_and_directory_growth_normalize(self):
         original = self.snapshot(); changed = copy.deepcopy(original)
-        changed["runtime_tree"][self.guard.PARENT_RELATIVE + "/.ntdll-review-test-001-deploy.tmp"] = {
-            "sha256": core.CANDIDATE, "stat": {"size": core.SIZE, "nlink": 1}}
+        temp = self.temporary()
+        changed["runtime_tree"][self.guard.PARENT_RELATIVE + "/.ntdll-review-test-001-deploy.tmp"] = temp
         changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["size"] += 32
-        self.assertEqual(self.normalized(original), self.normalized(changed, frozenset({"deploy"})))
+        changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["nlink"] += 1
+        self.assertEqual(self.normalized(original), self.normalized(changed, {"deploy": temp}))
+        with self.assertRaises(core.Stop): self.normalized(changed, frozenset({"deploy"}))
 
     def test_exact_temporary_without_phase_lineage_is_rejected(self):
         changed = self.snapshot()
-        changed["runtime_tree"][self.guard.PARENT_RELATIVE + "/.ntdll-review-test-001-restore.tmp"] = {
-            "sha256": core.ORIGINAL, "stat": {"size": core.SIZE, "nlink": 1}}
+        changed["runtime_tree"][self.guard.PARENT_RELATIVE + "/.ntdll-review-test-001-restore.tmp"] = self.temporary("restore")
         changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["size"] += 32
+        changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"]["nlink"] += 1
         with self.assertRaises(core.Stop): self.normalized(changed)
-        with self.assertRaises(core.Stop): self.normalized(changed, frozenset({"deploy"}))
+        with self.assertRaises(core.Stop): self.normalized(changed, {"deploy": self.temporary()})
 
     def test_unknown_temporary_and_unrelated_component_remain_visible(self):
         original = self.snapshot()
@@ -681,7 +699,7 @@ class GuardNormalizationTests(unittest.TestCase):
         original = self.snapshot()
         changed = copy.deepcopy(original); changed["settings"]["target"] = 120
         self.assertNotEqual(self.normalized(original), self.normalized(changed))
-        for field in ("mode", "uid", "gid", "flags", "size"):
+        for field in ("mode", "uid", "gid", "flags", "size", "nlink", "dev", "ino"):
             changed = copy.deepcopy(original)
             changed["runtime_tree"][self.guard.PARENT_RELATIVE]["stat"][field] += 1
             self.assertNotEqual(self.normalized(original), self.normalized(changed))

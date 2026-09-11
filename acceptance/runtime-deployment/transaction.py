@@ -325,12 +325,14 @@ class RuntimeTransaction:
         for p in [self.slot.parent,self.journal,self.rollback.parent]: _safe_path(p)
         for name,want in self.record_pins.items(): same_instance(want,inspect_file(self.journal/name,signature=False))
     def _event(self,name): self.hook(name,self); self._admit()
-    def _guard(self):
+    def _guard(self,parent_fd=None):
         current=self.guard()
         if self.baseline is not None:
             require(current==self.baseline['protected_guard'],'Protected product drift')
             same_instance(self.baseline['source'],inspect_file(self.original))
             same_instance(self.baseline['candidate'],inspect_file(self.candidate))
+        if parent_fd is not None and hasattr(self.guard,'verify_bound_parent'):
+            self.guard.verify_bound_parent(parent_fd)
         return current
     def _no_owned_temps(self):
         for phase in ('deploy','restore'):
@@ -374,6 +376,8 @@ class RuntimeTransaction:
         staged=inspect_file(temp); check_identity(staged,digest); transition=required_metadata(self.baseline['slot'],staged)
         require(staged['stat']['dev']==expected_current['stat']['dev'],'Atomic replacement requires same filesystem')
         require((staged['stat']['dev'],staged['stat']['ino'])!=(expected_current['stat']['dev'],expected_current['stat']['ino']),'Temporary is not independent')
+        require(all(staged['stat'][k]==lineage['owned'][k] for k in ('dev','ino')),'Staged temporary is not the exclusively created inode')
+        self._save(phase+'-stage-verified.json',{'phase':phase,'at':now(),'temporary':staged,'lineage':lineage})
         self._event('before-'+phase+'-intent')
         same_instance(expected_current,inspect_file(self.slot)); same_instance(staged,inspect_file(temp)); self._checked_rollback(); self._guard()
         intent={'phase':phase,'at':now(),'prior':expected_current,'temporary':staged,'rollback':rollback,'lineage':lineage,'metadata':metadata,'provenance':transition}
@@ -383,6 +387,7 @@ class RuntimeTransaction:
         dfd=_open_parent(self.slot,self.a['parent_bindings'][str(self.slot.parent)])
         try:
             same_instance(expected_current,inspect_file(self.slot)); same_instance(staged,inspect_file(temp))
+            self._guard(parent_fd=dfd)
             os.replace(temp.name,self.slot.name,src_dir_fd=dfd,dst_dir_fd=dfd)
             os.fsync(dfd)
         finally: os.close(dfd)

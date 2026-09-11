@@ -135,6 +135,17 @@ Wine path as input or output.
    temporary and a durable intent binding prior and incoming identities before
    the directory-descriptor-bound same-filesystem replacement. Refuse existing
    temporary names and cross-filesystem replacement; no copy fallback.
+   Seal the verified staging inode and its exclusive-creation lineage before
+   protected-product comparison. On this reviewed APFS volume, one regular-file
+   entry adds exactly one to the parent `nlink` and 32 bytes to its directory
+   size. Normalize those two effects only while that exact verified owned entry
+   is present. Before staging, require the historical parent state; immediately
+   before replacement, recheck the complete entry inventory and parent identity,
+   ownership, flags, ACL and xattrs through the bound directory descriptor.
+   A stage-plan name alone cannot authorize an entry. Missing/substituted owned
+   entries, foreign entries and unexplained link-count changes stop deployment.
+   After replacement, require the temporary name gone, its incoming inode at the
+   installed slot, and the parent inventory/count returned to the admitted state.
 7. **Verify installed candidate hash.** Read back the installed file independently
    and require the reviewed signed hash and size. Record metadata and the exact
    changed destination, including incoming inode and exact pinned provenance.
