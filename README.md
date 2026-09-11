@@ -46,7 +46,7 @@ Package the application after building Sophon:
 YAAGL_CHANNEL_CLIENT=hoyoplay node build-app.js
 ```
 
-Use `hoyoplaycn` for the Chinese distribution. The upstream `scripts/clean-build-hoyoplay.sh` helper performs a clean local application build.
+Use `hoyoplaycn` for the Chinese distribution.
 
 ## Related projects
 
