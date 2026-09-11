@@ -34,7 +34,7 @@ expect(found).toHaveLength(1);
 
 // Run the actual primary-action body against the actual async task queue.
 // All settings, client operations and namespace entry are inert fixtures.
-function harness(legacyAdmission = false) {
+function harness() {
   const events: string[] = [];
   const saving = deferred();
   const gameExit = deferred();
@@ -101,15 +101,7 @@ function harness(legacyAdmission = false) {
     },
     selectPath: vi.fn().mockResolvedValue(undefined),
   };
-  let body = found[0].getText(source);
-  if (legacyAdmission) {
-    // Removing just the new reservation reproduces the original asynchronous
-    // admission gap, even if taskQueue.next is now awaited by its caller.
-    body = body.replace(
-      "programBusy() || primaryActionPending",
-      "programBusy()"
-    );
-  }
+  const body = found[0].getText(source);
   const js = ts.transpileModule(body, {
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
   }).outputText;
@@ -138,30 +130,6 @@ beforeEach(() => {
 });
 
 describe("Genshin primary-action admission", () => {
-  it("reproduces two serial launches when overlapping settings saves have only the old busy guard", async () => {
-    const h = harness(true);
-    const first = h.action();
-    const second = h.action();
-    expect(h.dependencies.saveWineSettings).toHaveBeenCalledTimes(2);
-    h.saving.resolve();
-    await settle();
-    expect(h.events).toEqual(["game"]);
-    h.gameExit.resolve();
-    h.wineExit.resolve();
-    h.patchExit.resolve();
-    await Promise.all([first, second]);
-    expect(h.events).toEqual([
-      "game",
-      "companion stop",
-      "wine stopped",
-      "patch restored",
-      "game",
-      "companion stop",
-      "wine stopped",
-      "patch restored",
-    ]);
-  });
-
   it("admits once before saving, then holds ownership through game, companion, Wine and patch cleanup", async () => {
     const h = harness();
     let finished = false;

@@ -1,89 +1,59 @@
-# Genshin-only Yaagl with upstream presentation
+# YAAGL — Genshin launcher for macOS
 
-This branch keeps Genshin's regional/distribution options and restores the compact upstream UI. HSR/ZZZ launcher and Sophon support have been removed. The numeric FPS control and tested target-150 launch behavior remain.
+This fork of [YAAGL](https://github.com/rishabhroyy/yet-another-anime-game-launcher) provides a compact Genshin-focused HoYoPlay interface, regional distribution choices, game installation and updates, and per-game Wine and renderer settings. HSR and ZZZ support is removed from this fork.
 
-See the [local release and pinned build instructions](docs/releases/genshin-upstream-21f921d.md) for the exact tested source/resource/helper identities and validation limits. This is one successful one-minute gameplay run, not a claim of repeated reliability or equivalence to an older installed build.
+## Features
 
-The historical project information below remains for context; its generic latest-release installation instructions do not preserve this custom build.
+- Integer FPS targets from 1 through 360, with a default of 120 and an option to disable unlocking.
+- Saved settings remain selected across launches. Targets above 60 use the FPS companion automatically; the game and companion receive their respective DXMT settings.
+- Launch ownership prevents overlapping launches and keeps cleanup running before normal launcher shutdown.
+- Per-game Wine selection and prefixes, with request-scoped Wine shutdown waiting.
 
-#### **: Starting from release 0.3.12 using DXMT 0.74, you need to update to Sequoia or later. Sonoma is getting old and is lacking technical features to improve the translation.
+An FPS target is a requested limit, not a guarantee of rendered performance. Actual frame rates depend on the game, renderer and hardware. Wine and the FPS companion are distributed separately; building this launcher does not build or patch Wine.
 
-## For Linux users
-[Anime Games Launcher](https://github.com/an-anime-team/anime-games-launcher) is a universal linux launcher for anime games
+## Installation
 
-<!-- ## Policy
+Use an application package from this fork's [releases](https://github.com/zh0ngy1l1/yet-another-anime-game-launcher/releases), when available, or build from source. Move the application to `/Applications` before opening it. Keep game files in a writable directory in your home folder rather than inside `/Applications`.
 
-Please don't link to this repository. If you really want to share it with people, just tell the project name __Yaagl__ and where to find (Github!) but __don't share/disclose the link__ unless it's a private message.
+## Development
 
-Do __not__ provide any forms of tutorial for _how to use Yaagl_ on public channels. (If you really want to do that, ask the project owner for permission first.)
+Use Node.js, pnpm, Python and uv. The Sophon helper build also needs the macOS compiler tools. Install dependencies and prepare the native support files:
 
-Do __not__ mention the real name of the game or the game company, in code commits, issues, pr or dicussions. Use _The Anime Game_ or _The Anime Company_ instead.
-
-Just follow these, or share and ruin this project for all other macOS (including Linux as well) players. -->
-
-<!-- ### Hall of Shame
-
-This is a list of people/organization violating Yaagl policies -->
-
-## Is it safe?
-
-Use it at your own risk. Or enjoying it with a new f2p account.
-
-## Support
-
-[Our Discord server](https://discord.gg/HrV52MgSC2) is the **ONLY** place providing support if you have any issue just using this application.
-
-**DON'T FILE AN ISSUE** unless it's a technical problem coming with a clear root cause.
-
-> Simply put _My game doesn't launch_ or _I can't login_ without telling any technical detail is not acceptable, please go to the Discord server instead of abusing Github Issues
-
-**DON'T ASK FOR SUPPORT IN OTHER COMMUNITY**, especially the official one.
-
-## Install
-
-- Go to [Release](https://github.com/3Shain/yet-another-anime-game-launcher/releases/latest) and download the latest version.
-
-- Uncompress and copy the resulting application to your `/Applications` folder. (Do not open the application from Downloads folder).
-
-- Also make sure your game files aren't stored inside `/Applications`, use something inside your home folder instead, e.g `Games/GI`.
-<!--
-## Development (Outdated)
-
-### Setup
 ```sh
-git clone https://github.com/3Shain/yet-another-anime-game-launcher
-cd yet-another-anime-game-launcher
 pnpm install
 ./configure.sh
-pnpm exec neu update
+./build-sophon.sh
 ```
 
+Run the Genshin HoYoPlay development build:
 
-### Run
 ```sh
-# CN
-pnpm start
-# Oversea
-pnpm run start-hk4eos
+pnpm run start-hoyoplay
 ```
 
-### Build
-```sh
-node ./build-app.js
-``` -->
+Check the source and build the frontend without launching the application:
 
-## Uninstall (completely)
-1. Drag app to the bin
-2. Delete folder `~/Library/Application Support/Yaagl` or `~/Library/Application Support/Yaagl OS` if you are using oversea version. (For HSR and ZZZ the name of folder is slightly different)
+```sh
+pnpm run typecheck
+pnpm run lint
+pnpm test
+pnpm run build-hoyoplay
+```
+
+Package the application after building Sophon:
+
+```sh
+YAAGL_CHANNEL_CLIENT=hoyoplay node build-app.js
+```
+
+Use `hoyoplaycn` for the Chinese distribution. The upstream `scripts/clean-build-hoyoplay.sh` helper performs a clean local application build.
 
 ## Related projects
 
-* Custom `neutralinojs` binary from [3Shain/neutralinojs](https://github.com/3Shain/neutralinojs)
-* [DXMT](https://github.com/3Shain/dxmt)
-* Custom Wine from [anime-game-wine](https://github.com/yaagl/anime-game-wine)
+- [Neutralinojs](https://github.com/3Shain/neutralinojs)
+- [DXMT](https://github.com/3Shain/dxmt)
+- [YAAGL Wine](https://github.com/yaagl/anime-game-wine)
 
-## Special thanks
-* An Anime Team
-* Krock, the game running on macOS can not come true without his patch (you can find the link to his work in this repository, while you have to make a little effort ;) )
+## License
 
-* mkrsym1, tackled IMO the most challenging AC component. It's a really remarkable and mind-blowing achievement.
+See [LICENSE](LICENSE). Thanks to the upstream YAAGL contributors, An Anime Team, Krock and mkrsym1.

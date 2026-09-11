@@ -21,7 +21,7 @@ let requests: {
 let spawned: Child[];
 
 function allocate(name: string) {
-  // Exact Native4.11 allocator confirmed in installed binary: map.size().
+  // Model reuse of virtual process IDs after a child exits.
   const child = { id: children.size, pid: nextPid++, name };
   children.set(child.id, child);
   return child;
@@ -45,7 +45,7 @@ function waitingEnvironment() {
   };
 }
 
-function sourceWait(relative: string, old = false) {
+function sourceWait(relative: string) {
   const text = readFileSync(resolve(relative), "utf8");
   const source = ts.createSourceFile(
     relative,
@@ -64,11 +64,7 @@ function sourceWait(relative: string, old = false) {
   }
   visit(source);
   expect(found).toHaveLength(1);
-  let body = found[0].getText(source);
-  if (old)
-    body = body
-      .replace("return await unixExec(", "return await unixExec2(")
-      .replace("return await exec(", "return await exec2(");
+  const body = found[0].getText(source);
   const code = ts.transpileModule(body, {
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
   }).outputText;
@@ -140,20 +136,6 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
 describe.each(["src/wine/wine.ts", "src/launcher/hoyoplay-wine.ts"])(
   "Wine wait request ownership: %s",
   source => {
-    it("reproduces the old wrong143 result from the stopped companion virtual-ID collision", async () => {
-      const companion = leaveCompanionAfterGame();
-      const result = sourceWait(source, true)();
-      const rejection = expect(result).rejects.toThrow("non-zero code (143)");
-      await settle();
-      expect(spawned).toHaveLength(1);
-      expect(spawned[0].id).toBe(companion.id);
-      expect(spawned[0].pid).not.toBe(companion.pid);
-      finishSpawned(companion, 143);
-      await rejection;
-      expect(handlers.size).toBe(0);
-      // No actual Wine-wait child completion was emitted in this reproduction.
-    });
-
     it("waits for its own exit after a stale companion143 without changing command or environment", async () => {
       const companion = leaveCompanionAfterGame();
       let settled = false;

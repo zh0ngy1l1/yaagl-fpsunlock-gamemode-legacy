@@ -1,2 +1,0 @@
-# Preserve mixed archived line endings exactly; CRLF is evidence, not whitespace damage.
-*.log -text whitespace=cr-at-eol

@@ -1,1 +1,0 @@
-The adjacent unmodified patch is Wine downstream source from riverfog7/macports-wine, pinned in ../SOURCE-PROVENANCE.json. Wine is distributed under LGPL-2.1-or-later; original license: https://github.com/wine-mirror/wine/blob/wine-11.0/COPYING.LIB. This source is retained for offline regression extraction and provenance.
