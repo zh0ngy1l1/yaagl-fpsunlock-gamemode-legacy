@@ -1,133 +1,128 @@
-# Current-page protection correction for the selected Genshin Wine runtime
+# Current-page protection candidate, revision 2
 
-This isolated candidate corrects a concrete error in the installed Wine build's
-Rosetta executable-code invalidation workaround. It is a proposed crash correction,
-not a claim that the historical crashes' exact interleaving has been established.
-No target values, launch preferences, companion operations, renderer settings or
-launcher ownership/cleanup behavior are changed.
+This isolated, target-independent candidate removes an unnecessary protection
+cycle from the recorded Genshin FPS data-page write path. It is not proof of
+historical crash causation, a generic Wine/Rosetta fix, or accepted production
+software. Nothing has been installed, loaded, launched or merged into the
+protected frontend.
 
-## Mechanism
+## Original defect and rejected first candidate
 
-The downstream `toggle_executable_pages_for_rosetta()` helper runs after
-`NtWriteVirtualMemory`. It queries the target process and tests
-`MEMORY_BASIC_INFORMATION.AllocationProtect` for executable permissions. That field
-describes the allocation's initial protection, not the written page's current
-protection. In the failing archive, 530 successful queries report allocation
-protection `0x80` (`PAGE_EXECUTE_WRITECOPY`) and current protection `0x08`
-(`PAGE_WRITECOPY`) on the game data region beginning at `0x1452b4000`.
+Downstream CW HACK 18947 adds `toggle_executable_pages_for_rosetta()` after
+`NtWriteVirtualMemory`. It attempts to invalidate stale Rosetta code following
+cross-process Mach writes by changing execution protection in the target.
+It uses allocation-wide `AllocationProtect`, clears the executable nibble and
+substitutes `PAGE_NOACCESS` if the result is zero. Two separate protection calls
+apply and restore that value; their failures do not replace the write result.
 
-The workaround treats `0x80` as executable, clears `0xf0`, substitutes
-`PAGE_NOACCESS` for zero, calls `NtProtectVirtualMemory`, and calls it again to
-restore the prior protection. These are separate target-process operations. It
-does not return their status to the caller: the original write status and byte
-count are retained. A successful four-byte API result therefore does not establish
-that the write caused no page-protection side effects.
+Matching Wine allocates the PE image with broad executable/write-copy metadata,
+then applies section-specific current protections. The writable data section
+can legitimately have allocation protection `0x80` and current protection `0x08`,
+as archived queries report. Allocation metadata is not proof of executable code.
 
-Both observed read faults concern this page: one reads the FPS integer at
-`0x1452b4244`; the other reads unrelated CanvasRenderer positive-infinity bounds
-at `0x1452b4ad8`. This is a concrete mechanism consistent with both faults and
-with intermittent survival. No captured fault-time page protections or scheduler
-trace establish that this mechanism caused either historical exception.
+Revision 1 changed only the field. Independent review falsified its calculation:
+allocation `0x80`, current `0x180` (executable write-copy with guard) produced
+modifier-only `0x100`, which matching Wine rejects. Target APC failure writes
+`PAGE_NOACCESS` into the old-protection result; unchecked restoration can then
+leave the page inaccessible. Actual helper and matching protection-validation
+fixtures reproduce this source-reachable regression. Revision 1 signed artifact
+`702394b6…` is preserved as evidence and is **not a deployment input**.
 
-The correction uses current `Protect` in both places. A current non-executable
-data page now receives no protection toggle. The executable-page invalidation mechanism remains, with current protection
-determining eligibility. When allocation and current protection agree, its
-behavior is unchanged; when they differ, current protection now governs. This is independent of the four-byte value
-being written, including every requested integer from 61 through 360.
+## Revision 2
+
+```c
+if (info.Protect & 0xf0)
+{
+    ULONG noexec = (info.Protect & ~0xff) | ((info.Protect & 0xf0) >> 4);
+    /* Existing protection and restoration calls follow. */
+}
+```
+
+Current non-executable data pages receive no protection calls. Executable base
+protections map to their non-executable equivalents: execute-only to no-access,
+execute/read to read-only, execute/read/write to read/write, and execute/write-copy
+to write-copy. High modifier bits remain intact. This removes execution while
+preserving readable access where present and avoids modifier-only protection.
+Executable handling is retained. Existing failure/restoration handling remains
+a separate limitation; this correction does not redesign that contract.
+
+The helper never examines the payload. Every integer 61–360 follows this path,
+including later writes after game resets. No delay, extra 60 read, foreground
+predicate, manual arming or target special case is added.
 
 ## Exact source and binary correspondence
 
-The helper is from
-[CW HACK 18947 at the Wine 11.0 overlay commit](https://github.com/riverfog7/macports-wine/blob/0bf32337c0c2d2a699fc392f5db570cf42ca0f27/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.patch).
-Its added helper is also unchanged in the
-[release-era overlay](https://github.com/riverfog7/macports-wine/blob/098941d867f8793f559035e298ceb69a8e69f1f3/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.diff).
-Upstream Wine 11.0 alone does not contain this addition.
+The base is Wine 11.0; CW HACK 18947 is a downstream addition, present with
+identical helper additions in the pinned January and release-era overlays.
+`SOURCE-PROVENANCE.json` pins those sources and the archive matching the published
+release. Exact disassembly verifies this relevant path; a reproducible build of
+the entire Wine distribution has not been established.
 
-The installed `ntdll.so` SHA-256 is
-`f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b`.
-Its `NtWriteVirtualMemory` implementation at `0x66ac0` matches the added logic:
-the query buffer is at `rbp-0xf0`, and the instruction at `0x66c6d` loads
-`[rbp-0xe0]`, offset 16 (`AllocationProtect`). The corrected operand loads
-`[rbp-0xcc]`, offset 36 (`Protect`). One instruction feeds both the executable
-test and the protection calculation, so changing that displacement implements
-both source edits.
+The x64 MBI is 48 bytes: `AllocationProtect` at offset 16, `Protect` at offset 36.
+The query buffer is at `rbp-0xf0`. At VA `0x66c6d`, the original load
+`8b 8d 20 ff ff ff` feeds both classification and calculation. Replacing it with
+`8b 8d 34 ff ff ff` selects current protection. At VA `0x66c78`, the 12-byte
+legacy calculation becomes `c0 e9 04` (`shr cl,4`) plus nine NOPs. That byte shift
+preserves ECX's upper 24 bits and implements the formula exactly.
 
-The installed Wine archive SHA-256 is
-`4ebba536115e937c3826fa5808dbed50cd5e91c8454999b54cbe0cd2a43d8b4c`,
-matching the published `wine-devel-11.0-osx64-signed.tar.xz` release asset.
-This establishes exact artifact identity and matching relevant source, not a
-reproducible build of the entire downstream Wine distribution.
+The builder resolves both VAs through `__TEXT,__text`; file offsets happen to
+equal the VAs in this image. Thirteen code bytes change: one at `0x66c6f`, twelve
+at `0x66c78–0x66c83`. Function extent, branches, relocation and unwind data remain
+unchanged. Signing changes 31 further bytes within the existing signature payload;
+header and load-command bytes remain identical. All artifacts are 620,688 bytes.
 
-The build tool produces a strictly hash-pinned, statically patched and ad hoc
-signed copy. It does not compile all of Wine, load the library, execute Wine,
-change an installed file, or install the result. Input identity, instruction
-context, Mach-O mapping, changed code bytes, output identity and signature are
-checked separately. Unsupported or already patched input is rejected.
+| Artifact | SHA-256 |
+|---|---|
+| Exact original | `f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b` |
+| Revision 2 pre-sign | `9cc5ac83007e7942fe422793875c90f81fd6d647e5694ac96478c3e6326bc53d` |
+| Revision 2 signed | `eef64f611ae9033261a70f46ec0be38d58823717f14e80331946c6d0cd3c85f7` |
 
-## Universal automatic behavior
+Pre-sign means the unsigned candidate still contains its stale original embedded
+signature. Only the final signed artifact is a deployment input. The builder
+requires copied input within a declared offline staging root, pins both output
+hashes and checks the strict signature. See [BUILD.md](BUILD.md). Never supply an
+installed Wine path to the builder.
 
-The product composition retains protected frontend `a0e8c704` and the existing
-ordinary release companion v3.0.7 (`8543f45a...`). The latter already accepts
-the launcher's numeric argument without a diagnostic sidecar, manual arming,
-hotkey or Terminal command. The diagnostic `d23d2779` companion remains a
-separate observation profile; its first-full-60/foreground predicate is not a
-safety condition and is not required by this correction.
+## Semantic scope and residual risks
 
-The launcher retains default 120, maximum 360, exact per-integer forwarding,
-saved preferences, disabled-unlocker behavior, and enabled targets at or below
-60. Enabled DXMT unlocking above 60 retains game renderer rate 0 and the
-requested target for the companion. Rendered FPS remains subject to game scene,
-renderer, display and hardware throughput; a requested cap is not guaranteed
-performance.
+Current protection is the correct logical classifier for this native Win64 data
+page. Rosetta W^X handling preserves Wine's logical execute bit; physical NX alone
+does not contradict the classifier. A later logical RW→RX transition invokes
+in-target `mprotect`, supporting deferred invalidation of formerly executable
+pages. Public Apple material does not establish the complete cache contract.
 
-Attachment, address resolution, the complete four-byte read/compare/write loop,
-subsequent configuration updates, and rewrites after a game reset remain as
-implemented. Equal reads skip writes. Failed or short reads cannot authorize a
-write. The bound process lifetime, cancellation, per-game Wine/prefix selection,
-Wine waits and cleanup remain unchanged. The runtime correction applies to each
-actual write, so it does not require predicting world readiness or limiting the
-number of resets. No 120/150/160 aliases or timing heuristics are introduced.
+A concrete exception is Wine's `force_exec_prot` mode: logically readable NX pages
+can become host-executable. Revision 2 can skip them; its readable temporary
+protections can also regain host execution, defeating a toggle. Matching native
+Win64 code rejects enabling this mode, and the exact AMD64/NX-compatible Genshin
+image is outside the known counterexample. The runtime still serves other callers.
+This is a bounded compatibility risk, not an all-caller or WoW64-certified fix.
 
-## Verification and limits
+Ignored protection/restoration failures, mixed-page writes, other mapping actors,
+Mach fallback failure paths and resolver/lifetime robustness remain outside the
+correction. The aligned four-byte field does not span pages. Both historical
+read faults hit page `0x1452b4000`: the FPS integer and unrelated CanvasRenderer
+bounds. The mechanism can explain both; actual crash-time interleaving remains
+unproved. Native shutdown SIGILL is separate. Recovery `a2f6568` stays excluded.
 
-The focused native fixture extracts the actual downstream helper, mocks its
-native interfaces, and compares the original and corrected code. It constructs
-a read interleaving during the legacy no-access pulse at both recorded addresses,
-checks exact payloads for all 61–360 values, tests non-executable and executable
-page classes, and replays recorded writes with their archived query metadata.
-This is mechanism evidence, not execution of the game or of Wine under Rosetta.
-The existing packaged target/ownership/wait and repaired observer checks remain
-separate regression evidence; serialization checks do not prove crash reliability.
+## Product and acceptance
 
-The following remain outside this narrow correction: executable-page toggle
-failure/restoration handling, writes spanning regions, general Mach write
-fallback behavior, resolver hardening, and the native launcher shutdown SIGILL.
-The correction removes the demonstrated data-page misclassification. It does
-not establish continuous accessibility if the game or another actor changes a
-mapping, and it does not claim immunity from unrelated crashes.
+The product retains frontend `a0e8c704`, ordinary v3.0.7 companion `8543f45a…`,
+the existing per-game prefix, default 120, maximum 360, saved settings, disabled
+and enabled ≤60 behavior, exact targets, DXMT policy, automatic attachment,
+read/compare/write, resets, ownership, Wine waits and cleanup. Inherited waits
+remain; none is claimed as a safe-start rule. Requested target, successful write
+and rendered throughput remain separate facts.
 
-No activation, installation, merge, gameplay acceptance or live Wine experiment
-is part of this preparation. Recovery `a2f6568` remains excluded. The
-90/120/150/180 acceptance suite stays pending candidate review and explicit
-authorization for deployment and gameplay. A future controlled acceptance must
-record the corrected runtime hash as well as frontend, companion, game and
-configuration identities, preserve all original assessment verdicts, and stop
-on a crash rather than repeat an unchanged candidate to seek success.
+[Verification](TESTING.md) exercises extracted helpers, matching protection
+validation, release read/compare/write code, archive replay and builder rejection.
+Native mocks do not execute Wine or Rosetta. Ordinary-production acceptance uses
+existing companion output, passive native focus events and continuous video.
+It preserves product bytes and startup rules, with weaker write completeness than
+d23 and declared observation load; d23 is not substituted.
 
-The existing observer's journal/receipt checks require the d23 observation
-companion. The ordinary release companion does not emit that journal. An
-instrumented d23 acceptance run must retain that identity and its different
-startup gate in its conclusions; it cannot stand in for exact production
-startup acceptance. Production-matching observation coverage remains a review
-item before gameplay authorization.
-
-The built 620,688-byte signed delta hashes to
-`702394b643e83a4e2cd55fb0e013a4bcff6e20db01265246cce234eebda08f3d`.
-The unsigned code change hashes to
-`a7da31b9ac6f65b905d76b0d4cd5b7f0fb578337ebb5f8601c99018ec7a84bf7`.
-Signing changes only the existing signature's page hash bytes. The output is
-staged separately; the installed input still has its original hash.
-
-See [TESTING.md](TESTING.md) for the source-extracted regression and recorded
-trace replay. The helper fixture is a native host test with mocked interfaces;
-it does not execute the corrected Wine library.
+See [composition](../../acceptance/COMPOSITION.md),
+[observation](../../acceptance/production-observation/DESIGN.md),
+[deployment](../../acceptance/DEPLOYMENT.md), and the prepared
+[90/120/150/180 protocol](../../acceptance/SUITE.md). These plans are unexecuted.
+Offline evidence supports controlled review, not universal production reliability.

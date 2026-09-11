@@ -1,7 +1,7 @@
 {
-  "schema": 1,
+  "schema": 2,
   "status": "isolated candidate; not installed or accepted in gameplay",
-  "change": "Rosetta write invalidation uses current page protection instead of allocation protection",
+  "change": "Classify current protection and map executable base to non-executable equivalent while preserving modifier bits",
   "frontend": {
     "source_commit": "a0e8c704327e0d2568fbb4a0c569eee1f2188110",
     "resources_sha256": "4724889a8f29703f491c6ae2b1b4ad03819ca63c2229eca1dd4cd52a2ec42b96",
@@ -19,9 +19,12 @@
     "tag": "11.0-dxmt-signed-with-patches",
     "relative_file": "wine/lib/wine/x86_64-unix/ntdll.so",
     "input_sha256": "f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b",
-    "signed_output_sha256": "702394b643e83a4e2cd55fb0e013a4bcff6e20db01265246cce234eebda08f3d",
+    "signed_output_sha256": "eef64f611ae9033261a70f46ec0be38d58823717f14e80331946c6d0cd3c85f7",
     "size": 620688,
-    "build_kind": "exact binary delta and ad-hoc signature, not full Wine rebuild"
+    "build_kind": "exact binary delta and ad-hoc signature, not full Wine rebuild",
+    "pre_sign_sha256": "9cc5ac83007e7942fe422793875c90f81fd6d647e5694ac96478c3e6326bc53d",
+    "changed_code_bytes": 13,
+    "staged_artifact": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/artifacts/builds/v2-reproducibility-one/ntdll.so"
   },
   "preserved": {
     "default_target": 120,
@@ -47,11 +50,20 @@
       150,
       180
     ],
-    "status": "pending candidate and observation-profile review, then separate deployment/gameplay authorization",
-    "diagnostic_profile_caveat": "d23 journal/receipt profile differs from ordinary release startup; do not relabel it production acceptance"
+    "status": "offline review package; no installation or gameplay authorized or performed",
+    "diagnostic_profile_caveat": "d23 journal/receipt profile differs from ordinary release startup; do not relabel it production acceptance",
+    "observation_profile": "ordinary release log plus passive native foreground events and continuous video; no diagnostic startup gate"
   },
-  "independent_review": {
+  "revision": 2,
+  "prior_independent_review": {
     "sha256": "97fe03dc42059f1465714316607908593af0e68c4899ce88795926b57105b520",
-    "verdict": "no blocking defect in narrow implementation; historical causality and gameplay reliability unproved"
-  }
+    "verdict": "no blocking defect in narrow implementation; historical causality and gameplay reliability unproved",
+    "superseded": true
+  },
+  "revision_1": {
+    "signed_sha256": "702394b643e83a4e2cd55fb0e013a4bcff6e20db01265246cce234eebda08f3d",
+    "deployable": false,
+    "reason": "Executable guard mismatch can request modifier-only protection and leave PAGE_NOACCESS after failed first call."
+  },
+  "scope": "Controlled native AMD64/NX-compatible Genshin candidate; generic force_exec_prot/WoW64 semantics and real Rosetta behavior unproved"
 }

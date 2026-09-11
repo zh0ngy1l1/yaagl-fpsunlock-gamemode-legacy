@@ -1,6 +1,6 @@
 --- a/dlls/ntdll/unix/virtual.c
 +++ b/dlls/ntdll/unix/virtual.c
-@@ -6754,14 +6754,14 @@
+@@ -6754,14 +6754,13 @@
      if (!is_apple_silicon())
          return;
  
@@ -11,8 +11,8 @@
      {
          DWORD origprot, noexec;
 -        noexec = info.AllocationProtect & ~0xf0;
-+        noexec = info.Protect & ~0xf0;
-         if (!noexec) noexec = PAGE_NOACCESS;
+-        if (!noexec) noexec = PAGE_NOACCESS;
++        noexec = (info.Protect & ~0xff) | ((info.Protect & 0xf0) >> 4);
  
          NtProtectVirtualMemory( process, &addr, &size, noexec, &origprot );
          NtProtectVirtualMemory( process, &addr, &size, origprot, &noexec );
