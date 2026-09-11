@@ -1,0 +1,83 @@
+{
+  "original-absent": {
+    "result": "PASS",
+    "native_assertions": 34,
+    "geometry": "PASS original-absent-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/original-absent-native.log",
+    "native_log_sha256": "cd0cfc908d7ef1d7f5434e578e22d6b75fdac773cd125f74526804ae57a40284",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/original-absent-windows.log",
+    "windows_log_sha256": "715a2411289e1f63187b427b48be423703ee70131fc62f4dc9edfce3924f37a1"
+  },
+  "original-disabled": {
+    "result": "PASS",
+    "native_assertions": 34,
+    "geometry": "PASS original-disabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/original-disabled-native.log",
+    "native_log_sha256": "fe05f60d6b68885fbac135af25994079642de93cbe00e78ca8a6327a79499317",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/original-disabled-windows.log",
+    "windows_log_sha256": "39343545e845323f73afcce02f7b23f18f25095f66c76dab5dff1c112b9187e6"
+  },
+  "patched-absent": {
+    "result": "PASS",
+    "native_assertions": 35,
+    "geometry": "PASS patched-absent-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-absent-native.log",
+    "native_log_sha256": "851127ee7ea7d97cdf19dc64c82594d191a0614c792c1a7d813e5ab081690d8d",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-absent-windows.log",
+    "windows_log_sha256": "18256e35bc75a36e9db5cb27525ee8b42f7e274fa07dab0531d266571f32cbd0"
+  },
+  "patched-disabled": {
+    "result": "PASS",
+    "native_assertions": 35,
+    "geometry": "PASS patched-disabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-disabled-native.log",
+    "native_log_sha256": "851127ee7ea7d97cdf19dc64c82594d191a0614c792c1a7d813e5ab081690d8d",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-disabled-windows.log",
+    "windows_log_sha256": "89f5fd03a90258b7c321bd708d82cdd2612db107c0b3d899f3a54159a6a00f25"
+  },
+  "patched-enabled": {
+    "result": "PASS",
+    "native_assertions": 38,
+    "geometry": "PASS patched-enabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-enabled-native.log",
+    "native_log_sha256": "453c41cb52d89c32d159907afd21205c534248d03ae7aaef83af49d439d89066",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/patched-enabled-windows.log",
+    "windows_log_sha256": "b23f9ca1c9c2f20440b11261beed2a37791c20acb42fd9558f3e956c28cccce1"
+  },
+  "override-disabled": {
+    "result": "PASS",
+    "native_assertions": 35,
+    "geometry": "PASS override-disabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/override-disabled-native.log",
+    "native_log_sha256": "851127ee7ea7d97cdf19dc64c82594d191a0614c792c1a7d813e5ab081690d8d",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/override-disabled-windows.log",
+    "windows_log_sha256": "18256e35bc75a36e9db5cb27525ee8b42f7e274fa07dab0531d266571f32cbd0"
+  },
+  "override-enabled": {
+    "result": "PASS",
+    "native_assertions": 38,
+    "geometry": "PASS override-enabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/override-enabled-native.log",
+    "native_log_sha256": "453c41cb52d89c32d159907afd21205c534248d03ae7aaef83af49d439d89066",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/override-enabled-windows.log",
+    "windows_log_sha256": "c90f461383fd2cb81a6ed3d50c4a3e8c12002d1e8b851aafde4bfded015873a9"
+  },
+  "fixed-default-size": {
+    "result": "PASS",
+    "native_assertions": 38,
+    "geometry": "PASS fixed-default-size-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/fixed-default-size-native.log",
+    "native_log_sha256": "7313850b571b374a15f71bb0a1035d956c314ee9815a3e04edfba1186c43a8b3",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/fixed-default-size-windows.log",
+    "windows_log_sha256": "7a65730a70580138d5cdf3911fcf5a60ec649050327b0b0a70a1eb48a0b3076c"
+  },
+  "wow64-enabled": {
+    "result": "PASS",
+    "native_assertions": 38,
+    "geometry": "PASS wow64-enabled-windows.log all 12 windows restored; styles unchanged; fixed windowed client restored to 480x300",
+    "native_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/wow64-enabled-native.log",
+    "native_log_sha256": "453c41cb52d89c32d159907afd21205c534248d03ae7aaef83af49d439d89066",
+    "windows_log": "/Users/david/code/home/yaagl-wine-fullscreen/logs/wow64-enabled-windows.log",
+    "windows_log_sha256": "7d4e7bfd925491da80e4f4f00d0ebb41c9d5f6e5d8d77cd6a28e5937b044d222"
+  }
+}

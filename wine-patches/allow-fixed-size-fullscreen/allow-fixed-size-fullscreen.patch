@@ -1,0 +1,194 @@
+diff --git a/dlls/winemac.drv/cocoa_window.h b/dlls/winemac.drv/cocoa_window.h
+index 23ecd6d..0bf1825 100644
+--- a/dlls/winemac.drv/cocoa_window.h
++++ b/dlls/winemac.drv/cocoa_window.h
+@@ -32,6 +32,7 @@ @interface WineWindow : NSPanel <NSWindowDelegate>
+     BOOL preventsAppActivation;
+     BOOL floating;
+     BOOL resizable;
++    BOOL fixedSizeFullscreen;
+     BOOL maximized;
+     BOOL fullscreen;
+     BOOL pendingMinimize;
+@@ -69,6 +70,7 @@ @interface WineWindow : NSPanel <NSWindowDelegate>
+     BOOL enteringFullScreen;
+     BOOL exitingFullScreen;
+     NSRect nonFullscreenFrame;
++    NSMapTable* nonFullscreenChildFrames;
+     NSTimeInterval enteredFullScreenTime;
+ 
+     int draggingPhase;
+diff --git a/dlls/winemac.drv/cocoa_window.m b/dlls/winemac.drv/cocoa_window.m
+index 7d6d704..966872f 100644
+--- a/dlls/winemac.drv/cocoa_window.m
++++ b/dlls/winemac.drv/cocoa_window.m
+@@ -1044,6 +1044,7 @@ + (WineWindow*) createWindowWithFeatures:(const struct macdrv_window_features*)w
+         window->savedContentMinSize = NSZeroSize;
+         window->savedContentMaxSize = NSMakeSize(FLT_MAX, FLT_MAX);
+         window->resizable = wf->resizable;
++        window->fixedSizeFullscreen = wf->fixed_size_fullscreen;
+         window->_lastDisplayTime = [[NSDate distantPast] timeIntervalSinceReferenceDate];
+ 
+         [window registerForDraggedTypes:@[(NSString*)kUTTypeData, (NSString*)kUTTypeContent]];
+@@ -1100,6 +1101,7 @@ - (void) dealloc
+         [latentChildWindows release];
+         [latentParentWindow release];
+         [contentViewMaskLayer release];
++        [nonFullscreenChildFrames release];
+         [super dealloc];
+     }
+ 
+@@ -1153,7 +1155,8 @@ - (void) adjustFullScreenBehavior:(NSWindowCollectionBehavior)behavior
+         NSUInteger style = [self styleMask];
+ 
+         if (behavior & NSWindowCollectionBehaviorParticipatesInCycle &&
+-            style & NSWindowStyleMaskResizable && !(style & NSWindowStyleMaskUtilityWindow) && !maximized &&
++            (style & NSWindowStyleMaskResizable || fixedSizeFullscreen) &&
++            !(style & NSWindowStyleMaskUtilityWindow) && !maximized &&
+             !(self.parentWindow || self.latentParentWindow))
+         {
+             behavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+@@ -1223,6 +1226,11 @@ - (void) setWindowFeatures:(const struct macdrv_window_features*)wf
+         }
+ 
+         resizable = wf->resizable;
++        if (fixedSizeFullscreen != wf->fixed_size_fullscreen)
++        {
++            fixedSizeFullscreen = wf->fixed_size_fullscreen;
++            [self adjustFullScreenBehavior:[self collectionBehavior]];
++        }
+         [self adjustFeaturesForState];
+         [self setHasShadow:wf->shadow];
+     }
+@@ -2011,6 +2019,7 @@ - (void) setFrameFromWine:(NSRect)contentRect
+                     NSEnableScreenUpdates();
+ 
+                 if (!enteringFullScreen &&
++                    !(fixedSizeFullscreen && ([self styleMask] & NSWindowStyleMaskFullScreen || exitingFullScreen)) &&
+                     [[NSProcessInfo processInfo] systemUptime] - enteredFullScreenTime > 1.0)
+                     nonFullscreenFrame = frame;
+ 
+@@ -3001,11 +3010,30 @@ - (void) windowDidEnterFullScreen:(NSNotification*)notification
+             [self doOrderOut];
+     }
+ 
++    - (void) restoreNonFullscreenChildFrames
++    {
++        /* AppKit may move attached owned windows while centering/restoring a
++         * nonresizable fullscreen window. Restore their windowed positions too.
++         * Weak keys allow windows destroyed during fullscreen to disappear.
++         */
++        for (WineWindow* child in nonFullscreenChildFrames)
++        {
++            if (child.parentWindow == self || child.latentParentWindow == self)
++            {
++                [child setFrameAndWineFrame:[[nonFullscreenChildFrames objectForKey:child] rectValue]];
++                [child windowDidResize:nil];
++            }
++        }
++        [nonFullscreenChildFrames release];
++        nonFullscreenChildFrames = nil;
++    }
++
+     - (void) windowDidExitFullScreen:(NSNotification*)notification
+     {
+         exitingFullScreen = FALSE;
+         [self setFrameAndWineFrame:nonFullscreenFrame];
+         [self windowDidResize:nil];
++        [self restoreNonFullscreenChildFrames];
+         if (pendingOrderOut)
+             [self doOrderOut];
+     }
+@@ -3014,6 +3042,7 @@ - (void) windowDidFailToEnterFullScreen:(NSWindow*)window
+     {
+         enteringFullScreen = FALSE;
+         enteredFullScreenTime = 0;
++        [self restoreNonFullscreenChildFrames];
+         if (pendingOrderOut)
+             [self doOrderOut];
+     }
+@@ -3142,6 +3171,15 @@ - (void) windowWillEnterFullScreen:(NSNotification*)notification
+     {
+         enteringFullScreen = TRUE;
+         nonFullscreenFrame = self.wine_fractionalFrame;
++        if (fixedSizeFullscreen)
++        {
++            [nonFullscreenChildFrames release];
++            nonFullscreenChildFrames = [[NSMapTable weakToStrongObjectsMapTable] retain];
++            for (WineWindow* child in self.childWineWindows)
++                [nonFullscreenChildFrames setObject:[NSValue valueWithRect:child.wine_fractionalFrame] forKey:child];
++            for (WineWindow* child in latentChildWindows)
++                [nonFullscreenChildFrames setObject:[NSValue valueWithRect:child.wine_fractionalFrame] forKey:child];
++        }
+     }
+ 
+     - (void) windowWillExitFullScreen:(NSNotification*)notification
+diff --git a/dlls/winemac.drv/macdrv.h b/dlls/winemac.drv/macdrv.h
+index 6c51eef..ebce1f6 100644
+--- a/dlls/winemac.drv/macdrv.h
++++ b/dlls/winemac.drv/macdrv.h
+@@ -41,6 +41,7 @@
+ 
+ extern BOOL allow_vsync;
+ extern BOOL allow_set_gamma;
++extern BOOL allow_fixed_size_fullscreen;
+ extern BOOL allow_software_rendering;
+ 
+ extern UINT64 app_icon_callback;
+diff --git a/dlls/winemac.drv/macdrv_cocoa.h b/dlls/winemac.drv/macdrv_cocoa.h
+index 6a6b697..26492b6 100644
+--- a/dlls/winemac.drv/macdrv_cocoa.h
++++ b/dlls/winemac.drv/macdrv_cocoa.h
+@@ -476,6 +476,7 @@ extern int macdrv_register_hot_key(macdrv_event_queue q, unsigned int vkey, unsi
+     unsigned int    utility:1;
+     unsigned int    shadow:1;
+     unsigned int    prevents_app_activation:1;
++    unsigned int    fixed_size_fullscreen:1;
+ };
+ 
+ struct macdrv_window_state {
+diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
+index 775c3c9..2d42c5d 100644
+--- a/dlls/winemac.drv/macdrv_main.c
++++ b/dlls/winemac.drv/macdrv_main.c
+@@ -46,6 +46,7 @@ int topmost_float_inactive = TOPMOST_FLOAT_INACTIVE_NONFULLSCREEN;
+ bool capture_displays_for_fullscreen = false;
+ BOOL allow_vsync = TRUE;
+ BOOL allow_set_gamma = TRUE;
++BOOL allow_fixed_size_fullscreen = FALSE;
+ bool left_option_is_alt = false;
+ bool right_option_is_alt = false;
+ bool left_command_is_ctrl = false;
+@@ -321,6 +322,9 @@ static void setup_options(void)
+     if (!get_config_key(hkey, appkey, "CaptureDisplaysForFullscreen", buffer, sizeof(buffer)))
+         capture_displays_for_fullscreen = IS_OPTION_TRUE(buffer[0]);
+ 
++    if (!get_config_key(hkey, appkey, "AllowFixedSizeFullscreen", buffer, sizeof(buffer)))
++        allow_fixed_size_fullscreen = IS_OPTION_TRUE(buffer[0]);
++
+     if (!get_config_key(hkey, appkey, "AllowVerticalSync", buffer, sizeof(buffer)))
+         allow_vsync = IS_OPTION_TRUE(buffer[0]);
+ 
+diff --git a/dlls/winemac.drv/window.c b/dlls/winemac.drv/window.c
+index eecc8c7..394565e 100644
+--- a/dlls/winemac.drv/window.c
++++ b/dlls/winemac.drv/window.c
+@@ -95,7 +95,17 @@ static struct macdrv_window_features get_cocoa_window_features(struct macdrv_win
+     if (ex_style & WS_EX_NOACTIVATE) wf.prevents_app_activation = TRUE;
+     if (EqualRect(&data->rects.window, &data->rects.visible)) return wf;
+ 
+-    return get_window_features_for_style(style, ex_style, data->shaped);
++    wf = get_window_features_for_style(style, ex_style, data->shaped);
++    /* Native fullscreen is independent of the Windows resize/maximize styles.
++     * Only extend eligibility for ordinary, unowned, fixed-size top-level windows.
++     * Keep dialogs (including ownerless #32770 windows) and special windows out.
++     */
++    wf.fixed_size_fullscreen = allow_fixed_size_fullscreen && wf.title_bar && !wf.resizable &&
++        !(style & (WS_CHILD | WS_POPUP)) &&
++        !(ex_style & (WS_EX_DLGMODALFRAME | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) &&
++        !NtUserGetWindowRelative(data->hwnd, GW_OWNER) &&
++        NtUserGetClassLongW(data->hwnd, GCW_ATOM) != 32770;
++    return wf;
+ }
+ 
+ 

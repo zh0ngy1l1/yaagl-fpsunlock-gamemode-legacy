@@ -1,0 +1,18 @@
+{
+  "dlls/winemac.drv/keyboard.c": "ec41b98b3393335d9e847afdf5487d4153bb65745bac6eeed2c3446506eb95ac",
+  "dlls/winemac.drv/cocoa_app.m": "42f9874d18df5f3d212e4103ec4b2fabea3aca3b1c9c9fadfd6152c2ebf8c4e6",
+  "dlls/winemac.drv/cocoa_event.m": "9367d74d7a4eceadba149cbf39fa9cc57239378edef6ff00b723697fa4c2c28e",
+  "dlls/winemac.drv/cocoa_main.m": "1cde1ae155f34e2deac99dddd2ad351e6d7a18f23e691e108c0a9a0d18ab4d68",
+  "dlls/winemac.drv/event.c": "ad19d196b686b6cdf197e3758f6a0e725de18728214bc3a16d90c432332047a8",
+  "changed_cocoa_methods": [
+    "- (void) dealloc",
+    "+ (WineWindow*) createWindowWithFeatures:(const struct macdrv_window_features*)wf\n                                 windowFrame:(NSRect)window_frame\n                                        hwnd:(void*)hwnd\n                                       queue:(WineEventQueue*)queue",
+    "- (void) adjustFullScreenBehavior:(NSWindowCollectionBehavior)behavior",
+    "- (void) setWindowFeatures:(const struct macdrv_window_features*)wf",
+    "- (void) setFrameFromWine:(NSRect)contentRect",
+    "- (void) windowDidExitFullScreen:(NSNotification*)notification",
+    "- (void) windowDidFailToEnterFullScreen:(NSWindow*)window",
+    "- (void) windowWillEnterFullScreen:(NSNotification*)notification"
+  ],
+  "launcher_vs_start": "identical (wine, launcher, config)"
+}

@@ -1,0 +1,4 @@
+PASS 33 built native binaries are x86_64, signed and free of absolute build/dependency load paths
+PASS 3499 external dependency files match the existing engine
+PASS both x86_64 and i386 Windows modules installed
+PASS DXMT and WoW64 driver exports retained

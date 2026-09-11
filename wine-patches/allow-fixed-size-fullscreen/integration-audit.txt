@@ -1,0 +1,6 @@
+Historical automated integration audit, before the user's manual game validation
+and enablement of AllowFixedSizeFullscreen=Y. See validation.md for current state.
+
+PASS selected built -> original -> built; selected engine reports wine-11.0
+PASS all 11038 original engine file hashes preserved in rollback directory
+PASS actual prefix user.reg, launcher selections, and shared driver hashes unchanged
