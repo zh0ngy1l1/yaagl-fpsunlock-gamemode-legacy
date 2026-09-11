@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { FormControl, FormLabel, Box, Checkbox } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "@locale";
@@ -22,7 +23,7 @@ export default async function ({
   try {
     config.steamPatch = (await getKey(CONFIG_KEY)) == "true";
   } catch {
-    config.steamPatch = false; // default value
+    config.steamPatch = SETTING_DEFAULTS.config_steam_patch;
   }
 
   const [value, setValue] = createSignal(config.steamPatch);

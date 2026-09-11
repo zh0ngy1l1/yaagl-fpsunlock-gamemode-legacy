@@ -1,13 +1,15 @@
 import { Aria2 } from "@aria2";
 import { CommonUpdateProgram } from "@common-update-ui";
-import { createConfiguration } from "@config";
+import { createConfiguration, type ConfigurationUIProps } from "@config";
 import { Locale } from "@locale";
 import {
   activateStorageNamespace,
+  addCloseGuard,
+  alert,
   fatal,
   humanDuration,
   humanFileSize,
-  open,
+  isNormalCloseInProgress,
   openDir,
   withStorageNamespace,
 } from "@utils";
@@ -15,38 +17,42 @@ import { Wine } from "@wine";
 import {
   Button,
   Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
   ModalFooter,
-  ModalHeader,
   ModalOverlay,
   Progress,
   ProgressIndicator,
 } from "@hope-ui/solid";
-import { Accessor, For, JSXElement, Show, createSignal } from "solid-js";
+import {
+  Accessor,
+  For,
+  JSXElement,
+  Show,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import { createGameInstallationDirectorySanitizer } from "../accidental-complexity";
 import { ChannelClient } from "../channel-client";
 import { Config } from "../config/config-def";
 import type { Github } from "../github";
 import { createClient as createGenshinOsClient } from "../clients/hk4eos";
-import { createClient as createHsrOsClient } from "../clients/hkrpgos";
-import { createClient as createZzzOsClient } from "../clients/napos";
-import genshinFallbackIcon from "../assets/Nahida.cr.png";
-import hsrFallbackIcon from "../icons/March7th.cr.png";
-import zzzFallbackIcon from "../icons/ZZZ_Bang.cr.png";
 import { createHoyoplayTaskQueueState } from "./hoyoplay-task-queue";
 import {
-  applyHsrFpsRegistry,
   createDelayedCompanion,
   ensureGenshinFpsUnlocker,
   getFpsConfig,
   setFpsConfig,
+  setFpsUnlockEnabled,
   startGenshinFpsUnlockScript,
   withD3DMetalPerformanceEnv,
   withDxmtPreferredMaxFrameRate,
   withWineExec2Transform,
 } from "./hoyoplay-injections";
+import {
+  getFpsTargetError,
+  MAX_FPS_TARGET,
+  MIN_FPS_TARGET,
+  resolveFpsTarget,
+} from "./fps-target";
 import {
   createHoyoplayWineProxy,
   ensureHoyoplayGameWine,
@@ -65,13 +71,12 @@ import {
   type HoyoplayRenderer,
 } from "./hoyoplay-wine";
 
-type HoyoplayGameId = "genshin" | "hsr" | "zzz";
+type HoyoplayGameId = "genshin";
 
 export type HoyoplayGameSpec = {
   id: HoyoplayGameId;
   namespace: string;
   title: string;
-  fallbackIcon: string;
   fpsSupported: boolean;
   createClient: (options: {
     wine: Wine;
@@ -86,10 +91,7 @@ type GameState = {
   title: string;
   client: ChannelClient;
   config: Config;
-  ConfigurationUI: (props: {
-    onClose: (action: "check-integrity" | "close") => void;
-  }) => JSXElement;
-  fallbackIcon: string;
+  ConfigurationUI: (props: ConfigurationUIProps) => JSXElement;
   fpsSupported: boolean;
   fpsEnabled: Accessor<boolean>;
   setFpsEnabled: (value: boolean) => void;
@@ -104,6 +106,7 @@ type GameState = {
     tag: string;
     displayName: string;
     url: string;
+    disabled?: boolean;
   }[];
 };
 
@@ -112,32 +115,10 @@ export const DEFAULT_HOYOPLAY_GAME_SPECS: HoyoplayGameSpec[] = [
     id: "genshin",
     namespace: "hpgenshin",
     title: "Genshin Impact",
-    fallbackIcon: genshinFallbackIcon,
     fpsSupported: true,
     createClient: createGenshinOsClient,
   },
-  {
-    id: "hsr",
-    namespace: "hphsr",
-    title: "Honkai: Star Rail",
-    fallbackIcon: hsrFallbackIcon,
-    fpsSupported: true,
-    createClient: createHsrOsClient,
-  },
-  {
-    id: "zzz",
-    namespace: "hpzzz",
-    title: "Zenless Zone Zero",
-    fallbackIcon: zzzFallbackIcon,
-    fpsSupported: false,
-    createClient: createZzzOsClient,
-  },
 ];
-
-function sanitizeFps(value: string) {
-  const fps = Math.trunc(Number(value));
-  return Number.isFinite(fps) && fps > 0 ? fps : 120;
-}
 
 function namespacedProgram(
   aria2: Aria2,
@@ -245,7 +226,9 @@ export async function createHoyoplayLauncher({
   function launchProgram(game: GameState): CommonUpdateProgram {
     return (async function* () {
       const fpsEnabled = game.fpsSupported && game.fpsEnabled();
-      const fpsTarget = sanitizeFps(game.fpsTarget());
+      // A disabled unlocker never consumes the stored target. In particular,
+      // invalid legacy preferences must not affect its normal renderer path.
+      const fpsTarget = fpsEnabled ? resolveFpsTarget(game.fpsTarget()) : 0;
       const activeWine = game.wineRef.current;
       const renderer = game.renderer();
 
@@ -254,7 +237,7 @@ export async function createHoyoplayLauncher({
         game.wineTag() === SHARED_WINE_TAG
       ) {
         throw new Error(
-          "D3DMetal requires a per-game Wine selection. Choose a Wine version instead of Shared launcher Wine so the shared YAAGL runtime stays untouched."
+          "D3DMetal requires a per-game Wine selection. Choose a Wine Distribution instead of the existing inherited runtime so its files stay untouched."
         );
       }
       if (renderer === HOYOPLAY_RENDERER_D3DMETAL) {
@@ -268,14 +251,10 @@ export async function createHoyoplayLauncher({
       if (game.id === "genshin" && fpsEnabled) {
         yield* ensureGenshinFpsUnlocker(aria2, activeWine);
       }
-      if (game.id === "hsr" && fpsEnabled) {
-        yield ["setStateText", "PATCHING"];
-        await applyHsrFpsRegistry(activeWine, fpsTarget);
-      }
 
       const shouldTransformEnv =
         renderer === HOYOPLAY_RENDERER_D3DMETAL ||
-        (fpsEnabled && (game.id === "genshin" || game.id === "hsr"));
+        (fpsEnabled && game.id === "genshin");
       let fpsUnlockerEnv: Record<string, string> = {};
       const fpsUnlockerCompanion =
         game.id === "genshin" && fpsEnabled
@@ -315,7 +294,13 @@ export async function createHoyoplayLauncher({
                 stop() {
                   return fpsUnlockerCompanion.stop();
                 },
-              }
+              },
+              game.id === "genshin" &&
+                fpsEnabled &&
+                renderer === HOYOPLAY_RENDERER_DXMT &&
+                fpsTarget > 60
+                ? env => withDxmtPreferredMaxFrameRate(env, 0)
+                : undefined
             )
           : game.client.launch(game.config);
 
@@ -328,9 +313,9 @@ export async function createHoyoplayLauncher({
   }
 
   return function HoyoplayLauncher() {
-    const [selectedGameIndex, setSelectedGameIndex] = createSignal(0);
-    const selectedGame = () => games[selectedGameIndex()];
-    const [settingsOpen, setSettingsOpen] = createSignal(false);
+    // HoYoPlay selections were never persisted by this launcher. Always use
+    // its Genshin entry; unrelated legacy storage keys and data stay untouched.
+    const selectedGame = () => games[0];
     const [nativeSettingsGame, setNativeSettingsGame] =
       createSignal<GameState>();
     const [videoLoaded, setVideoLoaded] = createSignal(false);
@@ -349,7 +334,7 @@ export async function createHoyoplayLauncher({
       // Skip the startup patch-revert/integrity-check pass for a game that's
       // already known to need an update: repairing a stale install against
       // the latest manifest aborts instead of prompting to update.
-      if (game.client.updateRequired()) return;
+      if (game.client.updateRequired() || isNormalCloseInProgress()) return;
       taskQueue.next(
         namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
           game.client.init(game.config)
@@ -366,47 +351,94 @@ export async function createHoyoplayLauncher({
     }
 
     async function saveFpsSettings(game: GameState) {
-      const fps = sanitizeFps(game.fpsTarget());
-      game.setFpsTarget(String(fps));
+      const fps = resolveFpsTarget(game.fpsTarget());
       await setFpsConfig(game.id, game.fpsEnabled(), String(fps));
+      game.setFpsTarget(String(fps));
     }
 
-    async function onPrimaryAction() {
-      if (programBusy()) return;
-      const game = selectedGame();
-      await saveWineSettings(game);
-      await saveRendererSettings(game);
-      await saveFpsSettings(game);
+    async function saveNativeSettings(game: GameState) {
+      // Validate before any of the independently stored selections are saved.
+      if (getFpsTargetError(game.fpsTarget())) return;
+      await Promise.all([
+        saveWineSettings(game),
+        saveRendererSettings(game),
+        saveFpsSettings(game),
+      ]);
+      closeNativeSettings();
+    }
 
-      if (game.client.installState() === "INSTALLED") {
-        if (game.client.updateRequired()) {
-          setPendingSizeBytes(game.client.updateSizeBytes?.() ?? 0);
-          taskQueue.next(
-            namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-              game.client.update()
-            )
-          );
+    // Reserve the action before saving settings; the task queue sets busy later.
+    // Hold admission until its launch, Wine wait and patch cleanup finish.
+    let primaryActionPending = false;
+    onCleanup(
+      addCloseGuard(async () => {
+        if (!primaryActionPending && !programBusy()) return true;
+        await alert(
+          "YAAGL",
+          statusText() || locale.get("CONFIGURING_ENVIRONMENT")
+        );
+        return false;
+      })
+    );
+    async function onPrimaryAction() {
+      if (programBusy() || primaryActionPending || isNormalCloseInProgress())
+        return;
+      primaryActionPending = true;
+      try {
+        const game = selectedGame();
+        const invalidTarget = getFpsTargetError(game.fpsTarget());
+        if (
+          invalidTarget &&
+          game.fpsEnabled() &&
+          game.client.installState() === "INSTALLED" &&
+          !game.client.updateRequired()
+        ) {
+          openNativeSettings(game);
+          return;
+        }
+        await saveWineSettings(game);
+        await saveRendererSettings(game);
+        if (invalidTarget) {
+          // An unused legacy target does not block disabled launching or game
+          // installation/updating. Never save that invalid value as a new target.
+          await setFpsUnlockEnabled(game.id, game.fpsEnabled());
         } else {
-          taskQueue.next(
+          await saveFpsSettings(game);
+        }
+
+        if (game.client.installState() === "INSTALLED") {
+          if (game.client.updateRequired()) {
+            setPendingSizeBytes(game.client.updateSizeBytes?.() ?? 0);
+            await taskQueue.next(
+              namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
+                game.client.update()
+              )
+            );
+          } else {
+            await taskQueue.next(
+              namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
+                launchProgram(game)
+              )
+            );
+          }
+        } else {
+          const selection = await selectPath();
+          if (!selection) return;
+          await taskQueue.next(
             namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-              launchProgram(game)
+              game.client.install(selection)
             )
           );
         }
-      } else {
-        const selection = await selectPath();
-        if (!selection) return;
-        taskQueue.next(
-          namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
-            game.client.install(selection)
-          )
-        );
+      } finally {
+        primaryActionPending = false;
       }
     }
 
     function actionLabel(game: GameState) {
-      if (game.client.installState() !== "INSTALLED") return "Get Game";
-      if (!game.client.updateRequired()) return "Start Game";
+      if (game.client.installState() !== "INSTALLED")
+        return locale.get("INSTALL");
+      if (!game.client.updateRequired()) return locale.get("LAUNCH");
       const sizeBytes = game.client.updateSizeBytes?.() ?? 0;
       if (sizeBytes <= 0) return locale.get("UPDATE");
       const speedBps = estimatedSpeedBps();
@@ -423,12 +455,8 @@ export async function createHoyoplayLauncher({
       return game.client.updateRequired() ? "Update available" : "Ready";
     }
 
-    function selectGame(index: number) {
-      setSelectedGameIndex(index);
-      setVideoLoaded(false);
-    }
-
     function onPredownload() {
+      if (programBusy() || isNormalCloseInProgress()) return;
       const game = selectedGame();
       taskQueue.next(
         namespacedProgram(aria2, baseWine, game, d3dmetalPath, () =>
@@ -481,226 +509,94 @@ export async function createHoyoplayLauncher({
           />
         </Show>
 
-        <aside class="hoyoplay-game-rail">
-          <button class="hoyoplay-orbit-button" aria-label="HoYoPlay">
-            <span />
-          </button>
-          <div class="hoyoplay-game-icons">
-            <For each={games}>
-              {(game, index) => (
-                <button
-                  classList={{
-                    "hoyoplay-game-icon": true,
-                    active: selectedGameIndex() === index(),
-                  }}
-                  aria-label={game.title}
-                  onClick={() => selectGame(index())}
-                >
-                  <img
-                    src={game.client.uiContent.iconImage ?? game.fallbackIcon}
-                    alt=""
-                  />
-                  <span
-                    classList={{
-                      "hoyoplay-installed-dot": true,
-                      installed: game.client.installState() === "INSTALLED",
-                    }}
-                  />
-                </button>
-              )}
-            </For>
-          </div>
-        </aside>
-
         <main class="hoyoplay-stage" aria-label={selectedGame().title}>
-          <div class="hoyoplay-top-actions">
-            <button
-              class="hoyoplay-icon-button"
-              aria-label="Open official page"
-              onClick={() => open(selectedGame().client.uiContent.url)}
-            >
-              <span class="hoyoplay-link-icon" />
-            </button>
-            <button
-              class="hoyoplay-icon-button"
-              aria-label="Settings"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <span class="hoyoplay-settings-icon" />
-            </button>
-          </div>
-        </main>
-
-        <section class="hoyoplay-action-area">
-          <Show when={programBusy()}>
-            <div class="hoyoplay-progress">
-              <strong>
-                {statusText()}
-                {downloadEta() ? ` — ETA ${downloadEta()}` : ""}
-              </strong>
-              <Progress
-                value={progress()}
-                indeterminate={progress() === 0}
-                size="sm"
-                borderRadius={8}
-              >
-                <ProgressIndicator
-                  style={"transition: none;"}
+          <section
+            class="hoyoplay-action-area"
+            classList={{
+              "hoyoplay-action-left":
+                selectedGame().client.uiContent.launchButtonLocation === "left",
+            }}
+          >
+            <div class="hoyoplay-progress" role="status" aria-live="polite">
+              <Show when={programBusy()}>
+                <strong>
+                  {statusText()}
+                  {downloadEta() ? ` — ETA ${downloadEta()}` : ""}
+                </strong>
+                <Progress
+                  value={progress()}
+                  indeterminate={progress() === 0}
+                  size="sm"
                   borderRadius={8}
-                />
-              </Progress>
+                >
+                  <ProgressIndicator
+                    style={"transition: none;"}
+                    borderRadius={8}
+                  />
+                </Progress>
+              </Show>
             </div>
-          </Show>
-          <Show
-            when={
-              selectedGame().client.showPredownloadPrompt() && !programBusy()
-            }
-          >
-            <button class="hoyoplay-secondary-button" onClick={onPredownload}>
-              Pre-download {selectedGame().client.predownloadVersion()}
-            </button>
-          </Show>
-          <button
-            class="hoyoplay-primary-button"
-            disabled={programBusy()}
-            onClick={() => onPrimaryAction().catch(fatal)}
-          >
-            <span
-              classList={{
-                "hoyoplay-action-icon": true,
-                download: selectedGame().client.installState() !== "INSTALLED",
-              }}
-            />
-            <span class="hoyoplay-action-copy">
-              <span>{actionLabel(selectedGame())}</span>
-              <small>{selectedInstallLabel()}</small>
-            </span>
-          </button>
-          <button
-            class="hoyoplay-menu-button"
-            aria-label="Settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <span class="hoyoplay-menu-icon" />
-          </button>
-        </section>
-
-        <Modal opened={settingsOpen()} onClose={() => setSettingsOpen(false)}>
-          <ModalOverlay />
-          <ModalContent width={620} maxWidth={620}>
-            <ModalCloseButton />
-            <ModalHeader>{selectedGame().title}</ModalHeader>
-            <ModalBody>
-              <label class="hoyoplay-setting-row">
-                <span>Wine</span>
-                <select
-                  value={selectedGame().wineTag()}
-                  onInput={event =>
-                    selectedGame().setWineTag(event.currentTarget.value)
-                  }
-                >
-                  <For each={selectedGame().wineOptions}>
-                    {item => (
-                      <option value={item.tag}>{item.displayName}</option>
-                    )}
-                  </For>
-                </select>
-              </label>
-              <p class="hoyoplay-settings-muted">
-                Shared uses the launcher Wine. Per-game selections are cached
-                under{" "}
-                <code>Application Support/{appSupportName}/hoyoplay-wines</code>{" "}
-                and still use the shared <code>wineprefix</code>.
-              </p>
-              <label class="hoyoplay-setting-row">
-                <span>Renderer</span>
-                <select
-                  value={selectedGame().renderer()}
-                  onInput={event =>
-                    selectedGame().setRenderer(
-                      event.currentTarget.value as HoyoplayRenderer
-                    )
-                  }
-                >
-                  <option value={HOYOPLAY_RENDERER_DXMT}>DXMT</option>
-                  <option value={HOYOPLAY_RENDERER_D3DMETAL}>
-                    D3DMetal (experimental)
-                  </option>
-                </select>
-              </label>
+            <div class="hoyoplay-launch-panel">
               <Show
-                when={selectedGame().renderer() === HOYOPLAY_RENDERER_D3DMETAL}
-              >
-                <p class="hoyoplay-settings-muted">
-                  D3DMetal is downloaded automatically on first launch and
-                  applied only to per-game Wine, so the shared YAAGL Wine stays
-                  compatible with older launchers. Cached under{" "}
-                  <code>
-                    Application Support/{appSupportName}/hoyoplay-renderers
-                  </code>
-                  .
-                </p>
-              </Show>
-              <Show
-                when={selectedGame().fpsSupported}
-                fallback={
-                  <p class="hoyoplay-settings-muted">
-                    FPS unlock is not wired for this game yet.
-                  </p>
+                when={
+                  selectedGame().client.showPredownloadPrompt() &&
+                  !programBusy()
                 }
               >
-                <label class="hoyoplay-setting-row">
-                  <span>FPS unlock</span>
-                  <input
-                    type="checkbox"
-                    checked={selectedGame().fpsEnabled()}
-                    onInput={event =>
-                      selectedGame().setFpsEnabled(event.currentTarget.checked)
-                    }
-                  />
-                </label>
-                <label class="hoyoplay-setting-row">
-                  <span>Target FPS</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={selectedGame().fpsTarget()}
-                    onInput={event =>
-                      selectedGame().setFpsTarget(event.currentTarget.value)
-                    }
-                  />
-                </label>
-                <p class="hoyoplay-settings-muted">
-                  Off keeps DXMT at upstream 60 FPS. On sets DXMT when the DXMT
-                  renderer is active, and always applies the game unlock method.
-                </p>
+                <div class="hoyoplay-predownload">
+                  <button onClick={onPredownload}>
+                    {locale.format("PREDOWNLOAD_READY", [
+                      selectedGame().client.predownloadVersion(),
+                    ])}
+                  </button>
+                </div>
               </Show>
-            </ModalBody>
-            <ModalFooter gap="$3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  openNativeSettings(selectedGame());
-                }}
-              >
-                Advanced YAAGL Settings
-              </Button>
-              <Button
-                onClick={() =>
-                  Promise.all([
-                    saveWineSettings(selectedGame()),
-                    saveRendererSettings(selectedGame()),
-                    saveFpsSettings(selectedGame()),
-                  ]).then(() => setSettingsOpen(false))
+              <Show when={selectedGame().fpsSupported}>
+                <button
+                  class="hoyoplay-fps-summary"
+                  onClick={() => openNativeSettings(selectedGame())}
+                >
+                  {locale.get("SETTING_FPS_UNLOCK")}:{" "}
+                  {selectedGame().fpsEnabled()
+                    ? `${selectedGame().fpsTarget()} FPS`
+                    : locale.get("SETTING_FPS_UNLOCK_DEFAULT")}
+                </button>
+              </Show>
+              <Show
+                when={
+                  selectedGame().fpsEnabled() &&
+                  getFpsTargetError(selectedGame().fpsTarget())
                 }
               >
-                Save
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+                <p class="hoyoplay-settings-muted" role="alert">
+                  {getFpsTargetError(selectedGame().fpsTarget())}
+                </p>
+              </Show>
+              <div class="hoyoplay-button-group">
+                <Button
+                  class="hoyoplay-launch-button"
+                  size="xl"
+                  disabled={programBusy()}
+                  onClick={() => onPrimaryAction().catch(fatal)}
+                  title={selectedInstallLabel()}
+                >
+                  {actionLabel(selectedGame())}
+                </Button>
+                <Button
+                  class="hoyoplay-settings-button"
+                  size="xl"
+                  aria-label={locale.get("SETTING")}
+                  title={locale.get("SETTING")}
+                  onClick={() => openNativeSettings(selectedGame())}
+                >
+                  <span class="hoyoplay-settings-icon" aria-hidden="true">
+                    ⚙
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </section>
+        </main>
 
         <Modal
           opened={!!nativeSettingsGame()}
@@ -713,10 +609,121 @@ export async function createHoyoplayLauncher({
               const UI = game().ConfigurationUI;
               return (
                 <UI
+                  gameSettings={
+                    <Show when={game().fpsSupported}>
+                      <div class="hoyoplay-game-settings">
+                        <label class="hoyoplay-setting-row">
+                          <span>{locale.get("SETTING_FPS_UNLOCK")}</span>
+                          <input
+                            type="checkbox"
+                            checked={game().fpsEnabled()}
+                            onInput={event =>
+                              game().setFpsEnabled(event.currentTarget.checked)
+                            }
+                          />
+                        </label>
+                        <label class="hoyoplay-setting-row">
+                          <span>Target FPS</span>
+                          <input
+                            type="number"
+                            min={MIN_FPS_TARGET}
+                            max={MAX_FPS_TARGET}
+                            step="1"
+                            value={game().fpsTarget()}
+                            aria-invalid={
+                              !!getFpsTargetError(game().fpsTarget())
+                            }
+                            aria-describedby="hoyoplay-fps-target-error"
+                            onInput={event =>
+                              game().setFpsTarget(event.currentTarget.value)
+                            }
+                          />
+                        </label>
+                        <p class="hoyoplay-settings-muted">
+                          The numeric target is saved for this game. Launching
+                          applies the selected FPS unlock setting.
+                        </p>
+                      </div>
+                    </Show>
+                  }
+                  wineSettings={
+                    <div class="hoyoplay-game-settings">
+                      <label class="hoyoplay-setting-row">
+                        <span>Wine Distribution</span>
+                        <select
+                          value={game().wineTag()}
+                          title={
+                            game().wineOptions.find(
+                              item => item.tag === game().wineTag()
+                            )?.displayName
+                          }
+                          onInput={event =>
+                            game().setWineTag(event.currentTarget.value)
+                          }
+                        >
+                          <For each={game().wineOptions}>
+                            {item => (
+                              <option value={item.tag} disabled={item.disabled}>
+                                {item.displayName}
+                              </option>
+                            )}
+                          </For>
+                        </select>
+                      </label>
+                      <label class="hoyoplay-setting-row">
+                        <span>Wine Renderer</span>
+                        <select
+                          value={game().renderer()}
+                          onInput={event =>
+                            game().setRenderer(
+                              event.currentTarget.value as HoyoplayRenderer
+                            )
+                          }
+                        >
+                          <option value={HOYOPLAY_RENDERER_DXMT}>DXMT</option>
+                          <option value={HOYOPLAY_RENDERER_D3DMETAL}>
+                            D3DMetal (experimental)
+                          </option>
+                        </select>
+                      </label>
+                      <Show
+                        when={game().renderer() === HOYOPLAY_RENDERER_D3DMETAL}
+                      >
+                        <p class="hoyoplay-settings-muted">
+                          D3DMetal is downloaded automatically on first launch
+                          and applied only to per-game Wine, so the shared YAAGL
+                          Wine stays compatible with older launchers. Cached
+                          under{" "}
+                          <code>
+                            Application Support/{appSupportName}
+                            /hoyoplay-renderers
+                          </code>
+                          .
+                        </p>
+                      </Show>
+                    </div>
+                  }
+                  settingsFooter={
+                    <ModalFooter class="hoyoplay-settings-footer">
+                      <Button
+                        onClick={() => saveNativeSettings(game()).catch(fatal)}
+                      >
+                        {locale.get("SETTING_SAVE")}
+                      </Button>
+                      <Show when={getFpsTargetError(game().fpsTarget())}>
+                        <p id="hoyoplay-fps-target-error" role="alert">
+                          {getFpsTargetError(game().fpsTarget())}
+                        </p>
+                      </Show>
+                    </ModalFooter>
+                  }
                   onClose={action => {
                     const savedGame = game();
                     closeNativeSettings();
-                    if (action === "check-integrity") {
+                    if (
+                      action === "check-integrity" &&
+                      !isNormalCloseInProgress()
+                    ) {
                       taskQueue.next(
                         namespacedProgram(
                           aria2,

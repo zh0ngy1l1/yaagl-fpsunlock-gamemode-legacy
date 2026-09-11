@@ -81,14 +81,6 @@ jobs:
           cp dist/Yaagl/resources.neu resources_hk4eos.neu 
           YAAGL_CHANNEL_CLIENT=bh3glb node ./build-app.js
           cp dist/Yaagl/resources.neu resources_bh3glb.neu
-          YAAGL_CHANNEL_CLIENT=hkrpgcn node ./build-app.js
-          cp dist/Yaagl/resources.neu resources_hkrpgcn.neu
-          YAAGL_CHANNEL_CLIENT=hkrpgos node ./build-app.js
-          cp dist/Yaagl/resources.neu resources_hkrpgos.neu
-          YAAGL_CHANNEL_CLIENT=napcn node ./build-app.js
-          cp dist/Yaagl/resources.neu resources_napcn.neu
-          YAAGL_CHANNEL_CLIENT=napos node ./build-app.js
-          cp dist/Yaagl/resources.neu resources_napos.neu
           YAAGL_CHANNEL_CLIENT=hoyoplaycn node ./build-app.js
           cp dist/Yaagl/resources.neu resources_hoyoplaycn.neu
 
@@ -97,10 +89,6 @@ jobs:
           tar -zcf Yaagl.app.tar.gz Yaagl.app
           tar -zcf "Yaagl OS.app.tar.gz" "Yaagl OS.app"
           tar -zcf "Yaagl Honkai Global.app.tar.gz" "Yaagl Honkai Global.app"
-          tar -zcf "Yaagl HSR.app.tar.gz" "Yaagl HSR.app"
-          tar -zcf "Yaagl HSR OS.app.tar.gz" "Yaagl HSR OS.app"
-          tar -zcf "Yaagl ZZZ.app.tar.gz" "Yaagl ZZZ.app"
-          tar -zcf "Yaagl ZZZ OS.app.tar.gz" "Yaagl ZZZ OS.app"
           tar -zcf "Yaagl CN.app.tar.gz" "Yaagl CN.app"
       - name: Generate prerelease
         uses: "marvinpinto/action-automatic-releases@latest"
@@ -112,16 +100,8 @@ jobs:
             Yaagl.app.tar.gz
             Yaagl OS.app.tar.gz
             Yaagl Honkai Global.app.tar.gz
-            Yaagl HSR.app.tar.gz
-            Yaagl HSR OS.app.tar.gz
-            Yaagl ZZZ.app.tar.gz
-            Yaagl ZZZ OS.app.tar.gz
             Yaagl CN.app.tar.gz
             resources_hk4ecn.neu
             resources_hk4eos.neu
             resources_bh3glb.neu
-            resources_hkrpgcn.neu
-            resources_hkrpgos.neu
-            resources_napcn.neu
-            resources_napos.neu
             resources_hoyoplaycn.neu

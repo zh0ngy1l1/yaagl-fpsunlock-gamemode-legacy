@@ -8,8 +8,6 @@ mkdir -p "$EXTERNAL/bh3/glb/diffs"
 mkdir -p "$EXTERNAL/bh3/glb/files"
 # mkdir -p "$EXTERNAL/hkrpg/cn/diffs"
 # mkdir -p "$EXTERNAL/hkrpg/cn/files"
-mkdir -p "$EXTERNAL/hkrpg/os/diffs"
-mkdir -p "$EXTERNAL/hkrpg/os/files"
 
 # mkdir -p "$EXTERNAL/hk4e"
 # mkdir -p ./tmp

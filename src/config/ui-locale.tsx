@@ -25,8 +25,11 @@ export default async function ({
   locale: Locale;
 }) {
   const [value, setValue] = createSignal(locale.currentLanguage);
+  let savedValue = locale.currentLanguage;
 
   async function onSave(apply: boolean) {
+    if (value() == savedValue) return;
+    savedValue = value();
     await setKey("config_uiLocale", value());
   }
 

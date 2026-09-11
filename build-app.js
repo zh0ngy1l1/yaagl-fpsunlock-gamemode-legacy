@@ -44,16 +44,6 @@ const { IconIcns } = require("@shockpkg/icon-encoder");
       appDistributionName = config.cli.binaryName + " Uni";
       includeSophon = true;
       break;
-    case "hkrpgcn":
-      bundleId = config.applicationId + ".hkrpg.cn";
-      appDistributionName = config.cli.binaryName + " HSR";
-      config.modes.window.icon = "/src/icons/March7th.cr.png";
-      break;
-    case "hkrpgos":
-      bundleId = config.applicationId + ".hkrpg.os";
-      appDistributionName = config.cli.binaryName + " HSR OS";
-      config.modes.window.icon = "/src/icons/March7th.cr.png";
-      break;
     case "bh3glb":
       bundleId = config.applicationId + ".bh3.glb";
       appDistributionName = config.cli.binaryName + " Honkai Global";
@@ -66,16 +56,6 @@ const { IconIcns } = require("@shockpkg/icon-encoder");
     case "cbjqcn":
       bundleId = config.applicationId + ".scz.cn";
       appDistributionName = config.cli.binaryName + " SCZ";
-      break;
-    case "napos":
-      bundleId = config.applicationId + ".nap.os";
-      appDistributionName = config.cli.binaryName + " ZZZ OS";
-      config.modes.window.icon = "/src/icons/ZZZ_Bang.cr.png";
-      break;
-    case "napcn":
-      bundleId = config.applicationId + ".nap.cn";
-      appDistributionName = config.cli.binaryName + " ZZZ";
-      config.modes.window.icon = "/src/icons/ZZZ_Bang.cr.png";
       break;
     default:
       throw new Error("YAAGL_CHANNEL_CLIENT env required");
@@ -279,10 +259,6 @@ PATH_LAUNCH="$(dirname "$CONTENTS_DIR")" exec "$SCRIPT_DIR/${appname}" --path="$
   await fs.copy(path.resolve(process.cwd(), `sidecar`), sidecarDst, {
     preserveTimestamps: true,
   });
-  // Remove protonextras for hkrpg
-  if (["hkrpgcn", "hkrpgos"].includes(process.env["YAAGL_CHANNEL_CLIENT"])) {
-    await fs.remove(path.resolve(sidecarDst, "protonextras"));
-  }
 
   await (async function getFiles(dir) {
     const dirents = await fs.readdir(dir, { withFileTypes: true });

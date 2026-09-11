@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { FormControl, FormLabel, Box, Checkbox } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "@locale";
@@ -22,7 +23,7 @@ export async function createEnableHDRConfig({
   try {
     config.hk4eEnableHDR = (await getKey(CONFIG_KEY)) == "true";
   } catch {
-    config.hk4eEnableHDR = false;
+    config.hk4eEnableHDR = SETTING_DEFAULTS.config_hk4e_enable_hdr;
   }
 
   const [value, setValue] = createSignal(config.hk4eEnableHDR);

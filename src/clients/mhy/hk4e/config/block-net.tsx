@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { FormControl, FormLabel, Box, Checkbox } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "@locale";
@@ -22,7 +23,7 @@ export default async function ({
   try {
     config.blockNet = (await getKey(CONFIG_KEY)) == "true";
   } catch {
-    config.blockNet = false; // default value
+    config.blockNet = SETTING_DEFAULTS.config_block_net;
   }
 
   const [value, setValue] = createSignal(config.blockNet);

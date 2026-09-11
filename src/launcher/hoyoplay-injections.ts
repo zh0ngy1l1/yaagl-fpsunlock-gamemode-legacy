@@ -1,4 +1,5 @@
 import type { Aria2 } from "@aria2";
+import { GAME_SETTING_DEFAULTS } from "@config/defaults";
 import type { CommonUpdateProgram } from "@common-update-ui";
 import {
   exec,
@@ -6,7 +7,6 @@ import {
   getKeyOrDefault,
   humanFileSize,
   mkdirp,
-  readBinary,
   resolve,
   setKey,
   spawn,
@@ -14,6 +14,7 @@ import {
 } from "@utils";
 import type { Wine } from "@wine";
 import { join } from "path-browserify";
+import { resolveFpsTarget } from "./fps-target";
 
 const FPS_UNLOCKER_URL =
   "https://github.com/rishabhroyy/genshin-fps-unlock-universal/releases/download/v3.0.7/unlockfps.exe";
@@ -54,6 +55,7 @@ export async function startGenshinFpsUnlockScript(
   wineBin = resolve("./wine/bin/wine"),
   env: Record<string, string> = {}
 ) {
+  fps = resolveFpsTarget(fps);
   const scriptPath = resolve("./hoyoplay_genshin_fps_unlocker.sh");
   const logPath = resolve("./logs/hoyoplay_genshin_fps_unlocker.log");
 
@@ -187,20 +189,28 @@ export function createDelayedCompanion(
 export async function getFpsConfig(gameId: string) {
   return {
     enabled:
-      (await getKeyOrDefault(`hoyoplay_${gameId}_fps_enabled`, "false")) ==
-      "true",
-    target: Math.max(
-      1,
-      Math.trunc(Number(await getKeyOrDefault(`hoyoplay_${gameId}_fps`, "120")))
+      (await getKeyOrDefault(
+        `hoyoplay_${gameId}_fps_enabled`,
+        String(GAME_SETTING_DEFAULTS.fpsUnlockEnabled)
+      )) == "true",
+    // Keep invalid legacy values visible; only an absent preference defaults.
+    target: await getKeyOrDefault(
+      `hoyoplay_${gameId}_fps`,
+      String(GAME_SETTING_DEFAULTS.fpsUnlockTarget)
     ),
   };
 }
 
 export function setFpsConfig(gameId: string, enabled: boolean, target: string) {
+  const resolvedTarget = resolveFpsTarget(target);
   return Promise.all([
-    setKey(`hoyoplay_${gameId}_fps_enabled`, enabled ? "true" : "false"),
-    setKey(`hoyoplay_${gameId}_fps`, target),
+    setFpsUnlockEnabled(gameId, enabled),
+    setKey(`hoyoplay_${gameId}_fps`, String(resolvedTarget)),
   ]);
+}
+
+export function setFpsUnlockEnabled(gameId: string, enabled: boolean) {
+  return setKey(`hoyoplay_${gameId}_fps_enabled`, enabled ? "true" : "false");
 }
 
 export function withDxmtPreferredMaxFrameRate(
@@ -208,9 +218,10 @@ export function withDxmtPreferredMaxFrameRate(
   fps: number
 ) {
   const current = env.DXMT_CONFIG ?? "";
-  const next = current.includes("d3d11.preferredMaxFrameRate=")
-    ? current.replace(/d3d11\.preferredMaxFrameRate=\d+;?/g, "")
-    : current;
+  const next = current
+    .split(";")
+    .filter(entry => !/^\s*d3d11\.preferredMaxFrameRate\s*=/.test(entry))
+    .join(";");
 
   return {
     ...env,
@@ -252,7 +263,8 @@ export async function* withWineExec2Transform(
   onExec2?: {
     start(env: Record<string, string>): void;
     stop(): Promise<void>;
-  }
+  },
+  transformGameEnv?: (env: Record<string, string>) => Record<string, string>
 ): CommonUpdateProgram {
   const originalExec2 = wine.exec2.bind(wine);
 
@@ -260,7 +272,14 @@ export async function* withWineExec2Transform(
     const transformedEnv = transformEnv(env ?? {});
     onExec2?.start(transformedEnv);
     try {
-      return await originalExec2(command, args, transformedEnv, logPath);
+      // The companion keeps the selected target environment. Apply the game
+      // override only at final execution, without changing that environment.
+      return await originalExec2(
+        command,
+        args,
+        transformGameEnv ? transformGameEnv(transformedEnv) : transformedEnv,
+        logPath
+      );
     } finally {
       await onExec2?.stop();
     }
@@ -271,69 +290,4 @@ export async function* withWineExec2Transform(
   } finally {
     wine.exec2 = originalExec2;
   }
-}
-
-export async function applyHsrFpsRegistry(wine: Wine, fps: number) {
-  const key = "HKEY_CURRENT_USER\\Software\\Cognosphere\\Star Rail";
-  const queryLog = resolve("./hoyoplay_hsr_fps_query.log");
-
-  await wine.exec("reg", ["query", key], {}, queryLog);
-  const decoder = new TextDecoder("utf-8", { fatal: false });
-  const output = decoder.decode(await readBinary(queryLog));
-  const line = output
-    .split("\n")
-    .map(x => x.trim())
-    .find(x => x.startsWith("GraphicsSettings_Model_h"));
-  if (!line) return;
-
-  const [valueName] = line.split(/\s+/, 1);
-  const hexStart = line.indexOf("REG_BINARY");
-  if (hexStart < 0) return;
-
-  const bytes = line
-    .slice(hexStart + "REG_BINARY".length)
-    .replace(/[^0-9a-fA-F]/g, "")
-    .match(/.{1,2}/g)
-    ?.map(x => parseInt(x, 16));
-  if (!bytes) return;
-
-  const fpsBytes = new TextEncoder().encode(String(fps));
-  const marker = Array.from(new TextEncoder().encode("FPS"));
-  const markerIndex = bytes.findIndex((_, i) =>
-    marker.every((value, j) => bytes[i + j] === value)
-  );
-  if (markerIndex < 0) return;
-
-  const searchStart = markerIndex + marker.length;
-  const valueIndex = bytes.findIndex(
-    (value, i) =>
-      i >= searchStart &&
-      value >= "0".charCodeAt(0) &&
-      value <= "9".charCodeAt(0)
-  );
-  if (valueIndex < 0) return;
-
-  const valueEnd = (() => {
-    let i = valueIndex;
-    while (i < bytes.length && bytes[i] >= 0x30 && bytes[i] <= 0x39) i++;
-    return i;
-  })();
-  bytes.splice(valueIndex, valueEnd - valueIndex, ...Array.from(fpsBytes));
-
-  await wine.exec(
-    "reg",
-    [
-      "add",
-      key,
-      "/v",
-      valueName,
-      "/t",
-      "REG_BINARY",
-      "/d",
-      bytes.map(x => x.toString(16).padStart(2, "0")).join(""),
-      "/f",
-    ],
-    {},
-    "/dev/null"
-  );
 }

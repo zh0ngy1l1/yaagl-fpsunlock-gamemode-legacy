@@ -1,0 +1,42 @@
+{
+  "profile": "ordinary-v3.0.7-source-supported-log",
+  "target": 150,
+  "windows_pid_at_attachment": 200,
+  "window": "0x0000000000030076",
+  "address": "0x1452b4244",
+  "writes": [
+    {
+      "line": 40,
+      "old": -1,
+      "target": 150,
+      "text": "[21:07:59.831] INFO GameInstanceService: FPS Override: -1 -> 150"
+    },
+    {
+      "line": 41,
+      "old": 60,
+      "target": 150,
+      "text": "[21:08:03.655] INFO GameInstanceService: FPS Override: 60 -> 150"
+    },
+    {
+      "line": 42,
+      "old": 60,
+      "target": 150,
+      "text": "[21:08:04.057] INFO GameInstanceService: FPS Override: 60 -> 150"
+    },
+    {
+      "line": 45,
+      "old": 60,
+      "target": 150,
+      "text": "[21:08:51.965] INFO GameInstanceService: FPS Override: 60 -> 150"
+    }
+  ],
+  "delta_sha256": "89863f6c33ff3e1ccc528628e56d1e23151b49a19bec8daff6c3a1d2d827ab1e",
+  "delta_bytes": 3277,
+  "source_supported_complete_write": true,
+  "limits": [
+    "No sealed per-write PID binding, operation sequence or complete failed-operation journal",
+    "Log wall times are not atomic native-call times",
+    "Native host PID mapping requires independent corroboration; not established here",
+    "No world entry, gameplay duration, rendered FPS, harmlessness or stability assertion"
+  ]
+}

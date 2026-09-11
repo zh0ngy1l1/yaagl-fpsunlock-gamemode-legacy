@@ -178,9 +178,9 @@ def perform_update(manager: ConnectionManager, tasks: Dict[str, TaskStatus], tas
     if RUN_MEMORY_HACK:
         force_memory_release()
 
-def fetch_online_game_info(reltype: str, game: Literal["nap", "hk4e"]) -> OnlineGameInfo:
+def fetch_online_game_info(reltype: str, game: Literal["hk4e"]) -> OnlineGameInfo:
     try:
-        if game in ["hk4e", "nap"]:
+        if game == "hk4e":
             options = Options()
             options.game_type = game
             options.install_reltype = reltype
@@ -237,7 +237,7 @@ def fetch_online_game_info(reltype: str, game: Literal["nap", "hk4e"]) -> Online
                 error=None
             )
         else:
-            raise ValueError("Unsupported game type. Only 'hk4e' and 'nap' is supported.")
+            raise ValueError("Unsupported game type. Only 'hk4e' is supported.")
     except Exception as e:
         return OnlineGameInfo(
             game_type="",
@@ -249,15 +249,15 @@ def fetch_online_game_info(reltype: str, game: Literal["nap", "hk4e"]) -> Online
             error=str(e)
         )
 
-def fetch_update_download_size(reltype: str, game: Literal["nap", "hk4e"], from_version: str) -> UpdateSizeInfo:
+def fetch_update_download_size(reltype: str, game: Literal["hk4e"], from_version: str) -> UpdateSizeInfo:
     """
     fork addition: estimate the update download size for a game currently at
     `from_version`, without touching the caller's real install directory.
     """
     gamedir = pathlib.Path("./sidecar/sophon_server/gametemp_updatesize")
     try:
-        if game not in ["hk4e", "nap"]:
-            raise ValueError("Unsupported game type. Only 'hk4e' and 'nap' is supported.")
+        if game != "hk4e":
+            raise ValueError("Unsupported game type. Only 'hk4e' is supported.")
 
         options = Options()
         options.game_type = game

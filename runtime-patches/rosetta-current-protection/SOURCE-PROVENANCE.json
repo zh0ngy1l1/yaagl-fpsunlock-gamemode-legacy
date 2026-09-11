@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "scope": "Source provenance and exact installed-runtime binary-delta equivalence; no claim of a complete reproducible Wine build.",
+  "pristine_source": {
+    "project": "wine-mirror/wine",
+    "ref": "wine-11.0",
+    "path": "dlls/ntdll/unix/virtual.c",
+    "url": "https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/dlls/ntdll/unix/virtual.c",
+    "sha256": "cc09fcaf2f5234eedf68ba068ffa6f7b586bca2753ce98bc0887d11002913419"
+  },
+  "downstream_overlay": {
+    "repository": "https://github.com/riverfog7/macports-wine",
+    "commit": "0bf32337c0c2d2a699fc392f5db570cf42ca0f27",
+    "path": "emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.patch",
+    "git_blob": "c60b4e67c85dd5fbb9c1055af8e278104822d96c",
+    "sha256": "41277c5b18fffcd7aa71a33c5f6ba33d2c91f262dc7b1f5855b8951a563d464c",
+    "url": "https://raw.githubusercontent.com/riverfog7/macports-wine/0bf32337c0c2d2a699fc392f5db570cf42ca0f27/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.patch"
+  },
+  "release_era_reinforcement": {
+    "repository": "https://github.com/riverfog7/macports-wine",
+    "commit": "098941d867f8793f559035e298ceb69a8e69f1f3",
+    "path": "emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.diff",
+    "git_blob": "4d85401911517cb92b524211098c2402bdb768f0",
+    "sha256": "88f712b430fbf7d29f581f063772b97585cf9c4319787c8c3129434c2fd103de",
+    "url": "https://raw.githubusercontent.com/riverfog7/macports-wine/098941d867f8793f559035e298ceb69a8e69f1f3/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.diff",
+    "all_added_lines_byte_identical_to_january_overlay": true,
+    "added_lines_sha256": "99a304e37d4e8af39f46bdd339cea47ebe592497a3e91e0734bf778326576016"
+  },
+  "correction": {
+    "file": "0001-ntdll-use-current-protection-for-rosetta-toggle.patch",
+    "sha256": "88dd45f99c6438db828688239286192b1405c90f22d03ef5c54b62bb22c52458",
+    "source_change": "Select current info.Protect and derive noexec=(info.Protect & ~0xff) | ((info.Protect & 0xf0) >> 4); remove the zero-only PAGE_NOACCESS fallback.",
+    "behavior_scope": "Current non-executable pages bypass the helper. Current executable pages map their base to NOACCESS/READONLY/READWRITE/WRITECOPY and preserve high-byte modifiers. This fixes modifier-only requests from V1 and preserves read/write class for executable pages.",
+    "version": 2,
+    "helper_utf8_sha256": "dbbf5388d1ec2f918055119a79e56e72e5c0da2d7b798e79d98a8cfe3e161926",
+    "helper_hash_extent": "Starts with static void toggle_executable_pages_for_rosetta( and ends with the closing brace plus one newline; complete virtual.c hash is separate."
+  },
+  "application_check": {
+    "script": "check_source_patch.py",
+    "result": "SOURCE-APPLICATION-REPRO.json",
+    "result_sha256": "000cc3605cecd7fbca3104f4a3dc3d194116ed141e477383a577c394a31ededf",
+    "all_checks_passed": true,
+    "overlay_fuzz": 0,
+    "correction_fuzz": 0,
+    "pristine_plus_overlay_sha256": "f3511868a91f4c2e62bb52f432f5aab0e3526085a35fcea3eedb44ac5a6e8a2f",
+    "corrected_source_sha256": "ee3feb8b45f94076f3502e79d0e2fa5112214a1adc2b7110c47b8397eb72b8df",
+    "current_protect_references": 3,
+    "correction_reverse_dry_run_passed": true
+  },
+  "exact_binary": {
+    "input_sha256": "f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b",
+    "architecture": "Mach-O x86_64",
+    "instruction_address": "0x66c6d",
+    "old_instruction_hex": "8b8d20ffffff",
+    "new_instruction_hex": "8b8d34ffffff",
+    "rationale": "The existing query buffer is rbp-0xf0. Load displacement 0x20 -> 0x34 selects Protect at structure +0x24 instead of AllocationProtect +0x10. SHR CL,4 preserves ECX bits 8\u201331 and exactly maps (Protect & ~0xff) | ((Protect & 0xf0) >>4). Nine NOPs preserve the twelve-byte extent, all following addresses, branches, and unwind metadata. No flags from this calculation are consumed before NtProtect resets them.",
+    "unsigned_sha256": "9cc5ac83007e7942fe422793875c90f81fd6d647e5694ac96478c3e6326bc53d",
+    "signed_sha256": "eef64f611ae9033261a70f46ec0be38d58823717f14e80331946c6d0cd3c85f7",
+    "manifest": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/artifacts/builds/v2-reproducibility-one/manifest.json",
+    "changed_file_offsets": [
+      "0x66c6f",
+      "0x66c78..0x66c83"
+    ],
+    "changed_code_bytes": 13,
+    "calculation_address": "0x66c78",
+    "old_calculation_hex": "81e10fffffff83f90183d100",
+    "new_calculation_hex": "c0e904909090909090909090",
+    "unsigned_terminology": "Persisted pre-sign bytes retain the stale original embedded signature; not stripped signature.",
+    "metadata_audit": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/binary-audit/v2-metadata/FULL-MACHO-AUDIT.json"
+  },
+  "limitations": [
+    "This is an exact binary delta and source correction, not a full Wine source rebuild.",
+    "No runtime execution, installation, activation, or gameplay validation occurred.",
+    "The field-selection defect is concrete; retrospective crash causality and gameplay effect remain unverified.",
+    "NtProtect statuses, independent remote protection calls, range/lifetime races and executable-only NOACCESS behavior are not changed by this correction.",
+    "In force_exec_prot mode the helper can preserve logical reads but Wine may re-add host execute permission; V2 does not establish equivalent Rosetta invalidation in that broader runtime mode."
+  ]
+}

@@ -61,9 +61,8 @@ import subprocess # for hpatchz (ldiff)
 import sys # stdout
 import tempfile # patch extraction
 import time
-from typing import Literal, Optional
+from typing import Literal
 import uuid
-import struct
 import urllib.error # exception handling
 import urllib.request as request # downloads
 from typing import TYPE_CHECKING
@@ -124,7 +123,7 @@ class Options(argparse.Namespace):
 	force_use_cache: bool = False # True: disallow downloads, False: download if not cached
 	predownload: bool = False
 	install_reltype: str | None = None
-	game_type: Literal["hk4e", "nap"] | None # hk4e or nap
+	game_type: Literal["hk4e"] | None # Genshin
 	do_install: bool = False
 	do_update: bool = False         # True: ldiff, False: chunks
 	repair_mode: str | None = None  # "quick"|"reliable"|None
@@ -281,29 +280,6 @@ def hpatchz_patch_file(oldfile: pathlib.Path, dstfile: pathlib.Path, patchfile: 
 	return True
 
 
-def get_game_version(game_data_dir: pathlib.Path, offset: int = 0x88) -> Optional[str]:
-	ggm_path = game_data_dir / "globalgamemanagers"
-	with open(ggm_path, "rb") as f:
-		view = f.read()
-
-	pattern = bytes([0x69, 0x63, 0x2e, 0x61, 0x70, 0x70, 0x2d, 0x63, 0x61, 0x74, 0x65, 0x67, 0x6f, 0x72, 0x79, 0x2e])
-	plen = len(pattern)
-	index = -1
-	for i in range(len(view) - plen + 1):
-		if view[i:i+plen] == pattern:
-			index = i
-			break
-
-	if index == -1:
-		raise ValueError("pattern not found")
-	else:
-		len_index = index + offset
-		strlen = struct.unpack_from('<I', view, len_index)[0]
-		str_bytes = view[len_index + 4: len_index + 4 + strlen]
-		str_val = str_bytes.decode('ascii')
-		return str_val.split('_')[0]
-
-
 # -------------------
 
 class DownloadInfo:
@@ -317,7 +293,7 @@ class DownloadInfo:
 class SophonClient:
 	installed_ver: None  # "major.minor.patch" or "new" for new installations
 	rel_type: str | None = None  # os / cn / bb
-	game_type: Literal["hk4e", "nap"] | None = None  # hk4e / nap
+	game_type: Literal["hk4e"] | None = None  # Genshin
 	gamedatadir: str | None= None # "*_Data"
 	branch: str          # main / pre_download
 	branches_json = None # package_id, password, tag
@@ -345,7 +321,7 @@ class SophonClient:
 			self.rel_type = OPT.install_reltype
 
 		if OPT.game_type:
-			assert OPT.game_type in ["hk4e", "nap"], "Unknown game type. Must be 'hk4e' or 'nap'."
+			assert OPT.game_type == "hk4e", "Unknown game type. Must be 'hk4e'."
 			self.game_type = OPT.game_type
 
 		if OPT.do_install + OPT.do_update + isinstance(OPT.repair_mode, str) > 1:
@@ -387,11 +363,6 @@ class SophonClient:
 				"cn": "[General]\r\nchannel=1\r\ncps=mihoyo\r\ngame_version=0.0.0\r\nsdk_version=\r\nsub_channel=1\r\n",
 				"bb": "[General]\r\nchannel=14\r\ncps=bilibili\r\ngame_version=0.0.0\r\nsdk_version=\r\nsub_channel=0\r\n"
 			}
-		elif OPT.game_type == "nap":
-			templates = {
-				"os": "[General]\r\nchannel=1\r\ncps=mihoyo\r\ngame_version=0.0.0\r\nsdk_version=\r\nsub_channel=0\r\n",
-				"cn": "[General]\r\nchannel=1\r\ncps=mihoyo\r\ngame_version=0.0.0\r\nsdk_version=\r\nsub_channel=1\r\n",
-			}
 		assert templates[self.rel_type], "Unknown reltype"
 		with gamedir("config.ini").open("w") as fh:
 			fh.write(templates[self.rel_type])
@@ -421,16 +392,6 @@ class SophonClient:
 			if not isinstance(self.rel_type, str):
 				abortlog("Failed to detect release type. " \
 				         + f"Game executable in '{OPT.gamedir}' could not be found.")
-		elif self.game_type == "nap":
-			with open(gamedir("config.ini"), "r") as f:
-				contents = f.read()
-				if "sub_channel=0" in contents:
-					self.rel_type = "os"
-				elif "sub_channel=1" in contents:
-					self.rel_type = "cn"
-			if not isinstance(self.rel_type, str):
-				abortlog("Failed to detect release type. " \
-				         + f"config.ini in '{OPT.gamedir}' has wrong information.")
 
 		infolog(f"Release type: {self.rel_type}")
 
@@ -446,10 +407,6 @@ class SophonClient:
 
 				self.installed_ver = ver[0].decode("utf-8")
 				infolog(f"Installed game version: {self.installed_ver} (anchor 1: globalgamemanagers)")
-			elif self.game_type == "nap":
-				ver = get_game_version(gamedir(self.gamedatadir), 0xc4)
-				assert ver, "Failed to retrieve game version from globalgamemanagers"
-				self.installed_ver = ver
 		else:
 			# Change this if needed
 			self.installed_ver = "5.5.0"
@@ -638,26 +595,16 @@ class SophonClient:
 		game_ids: str = None
 		launcher_id: str = None
 
-		assert self.game_type in ["hk4e", "nap", "hkrpg"], "Unknown game type. Must be 'hk4e' or 'nap'."
+		assert self.game_type == "hk4e", "Unknown game type. Must be 'hk4e'."
 
 		if self.rel_type == "os":
 			# Up-to-date as of 2024-06-15 (4.7.0)
-			if self.game_type == "nap":
-				game_ids = "U5hbdsT9W7"
-			elif self.game_type == "hk4e":
-				game_ids = "gopR6Cufr3"
-			elif self.game_type == "hkrpg":
-				game_ids = "4ziysqXOQ8"
+			game_ids = "gopR6Cufr3"
 			launcher_id = "VYTpXlbWo8"
 		elif self.rel_type == "cn":
 			# From DGP-Studio/Snap.Hutao (GitHub), MIT
 			launcher_id = "jGHBHlcOq1"
-			if self.game_type == "nap":
-				game_ids = "x6znKlJ0xK"
-			elif self.game_type == "hk4e":
-				game_ids = "1Z8W5NHUQb"
-			elif self.game_type == "hkrpg":
-				game_ids = "64kMb5iAWu"
+			game_ids = "1Z8W5NHUQb"
 		elif self.rel_type == "bb":
 			# From DGP-Studio/Snap.Hutao (GitHub), MIT
 			assert self.game_type == "hk4e", "Bilibili is only available for 'hk4e' game type"

@@ -64,7 +64,9 @@ export async function createWine(options: {
   }
 
   async function waitUntilServerOff() {
-    return await unixExec2([join(dirname(loaderBin), "wineserver"), "-w"], {
+    // Bind completion to this command. Native spawn IDs can be reused while
+    // the stopped companion still has an outstanding exit event.
+    return await unixExec([join(dirname(loaderBin), "wineserver"), "-w"], {
       ...getEnvironmentVariables(),
     });
   }

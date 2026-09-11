@@ -1,0 +1,211 @@
+{
+  "tested_source_revision": "21f921d982cb44dda521e81b6af9416023d3b837",
+  "resource": {
+    "sha256": "1f4c8b693865e85e1256a506687a1005559372037a90cde1409148ad66f35f83",
+    "size": 1057762
+  },
+  "tool_versions": {
+    "node": "22.23.2",
+    "pnpm": "9.15.9",
+    "typescript": "4.9.5",
+    "vite": "3.2.11",
+    "solid-js": "1.9.7",
+    "semver": "7.7.2",
+    "neutralino_cli": "9.8.0",
+    "python": "3.13.15",
+    "python_architecture": "x86_64",
+    "python_distribution": "Python Build Standalone",
+    "uv": "0.12.10",
+    "nuitka": "2.7.16",
+    "protoc": "31.1",
+    "protobuf_python": "6.31.1",
+    "nuitka_c_compiler": "clang 21.0.0",
+    "nuitka_ccache": "4.2.1"
+  },
+  "inputs": {
+    "pnpm-lock.yaml": {
+      "sha256": "b5d55ccb0f3b5f98a374adfe5b71c5e70a2577685958e50e7a704ec86a2dfb67",
+      "size": 119217
+    },
+    "sophon_server/uv.lock": {
+      "sha256": "5bb87d43877f8def6b781a4bfd49e63317bc1a54a5326e52fef5ccbc4cf5e693",
+      "size": 70598
+    },
+    "bin/neutralino-mac_arm64": {
+      "sha256": "47a52f1923f8b870401192c7ad0688202336b0642b7fa88070e74e415a5d8692",
+      "size": 2002000
+    },
+    "bin/neutralino-mac_universal": {
+      "sha256": "94d8b668db27c9643888805ea0a82b3ffecd357d427660d193349752dc0b512f",
+      "size": 4082768
+    },
+    "bin/neutralino-mac_x64": {
+      "sha256": "2287b77098564d292f65919ac3740f9dc7ad4c5dafb026a845348909a90a959c",
+      "size": 2058944
+    },
+    "bin/protoc": {
+      "sha256": "68941f41ff99457820900355909b0d16c695aed9879c9a5f7096b6fe270dcbea",
+      "size": 18550288
+    },
+    "neutralino.js": {
+      "sha256": "577771c2728e8d8fab112c7da95cb02fc98cca31a9e5e065459bcac20cfb1272",
+      "size": 12789
+    },
+    "sophon_server/manifest_pb2.py": {
+      "sha256": "06e5dc449d5fa6bbef1159533e1321e3e6fdccd9716c1cd9cc7a28d6d137c7b5",
+      "size": 1934
+    },
+    "sophon_server/manifest_ldiff_pb2.py": {
+      "sha256": "29a23dc5b84ac4f0114217c4255bede52edcfe098bd08d9f0dc10c3c34c56a9c",
+      "size": 2977
+    }
+  },
+  "tracked_sidecars": {
+    "sidecar/7z/7zz": {
+      "sha256": "10bba361f87be5882e362df8f283646fb5fff1a7f63246149a5809be286897f5",
+      "size": 5229328
+    },
+    "sidecar/7z/License.txt": {
+      "sha256": "acd745b244c9e105db455a6064fb9483d67123e3e816e55526aa44c88ecdeecf",
+      "size": 3936
+    },
+    "sidecar/aria2/LICENSE.txt": {
+      "sha256": "54b2f1b3c4b8e010862d9aa8c8f6e8b210dc3e60a4e2adfdbfcf9aeaea2fae91",
+      "size": 17996
+    },
+    "sidecar/aria2/aria2c": {
+      "sha256": "9bb4ff0638b1fc198d5ee2e6badb431febdef62295346769911e5ff8341d5ec4",
+      "size": 1684616
+    },
+    "sidecar/hpatchz/LICENSE.txt": {
+      "sha256": "ba902e6d3cbee406aee3c0dc6667279e3a7a8f91315bf97022e83e9fffcf6ac4",
+      "size": 2259
+    },
+    "sidecar/hpatchz/hpatchz": {
+      "sha256": "b7caf045b1fd02c2333d1206215b2331c23961df2236cea33c06a4c811344bea",
+      "size": 501680
+    },
+    "sidecar/protonextras/lsteamclient32.dll": {
+      "sha256": "608eece6672369db539211fd04eb95b9fb5ddd077e76aa87c28c04c25c1e2fe2",
+      "size": 4412824
+    },
+    "sidecar/protonextras/lsteamclient64.dll": {
+      "sha256": "af50ed0d952ef98d99d4d3ff67b4836b545c9403894430fca31969f9f630637b",
+      "size": 5560872
+    },
+    "sidecar/protonextras/steam32.exe": {
+      "sha256": "d3b17fda25217165f5f5198ac179bb0645d4fcc61381bfeb0ba3c73ea029a433",
+      "size": 97904
+    },
+    "sidecar/protonextras/steam64.exe": {
+      "sha256": "0424339444c54bf1f9fdbadf12e4e2c90ceef41d987fe573b93f5f2ebfd8a657",
+      "size": 111304
+    },
+    "sidecar/xdelta/LICENSE.txt": {
+      "sha256": "6cf63d87586c7c25c3ab8e62eef5c75bbaa982b0a6f9c00c59e2720255aac9ec",
+      "size": 9156
+    },
+    "sidecar/xdelta/xdelta3": {
+      "sha256": "5f18175acedfa92c6104c880a1bfdc575798f1cc8a6d4d92d029948b163fa22b",
+      "size": 277888
+    }
+  },
+  "tested_sophon_distribution": {
+    "google/_upb/_message.so": {
+      "sha256": "d1ff2119e3995fb8068a1b1fbfd2436d57843662f21705e35cc7bbef53fdb19b",
+      "size": 337344,
+      "mode": "0o644"
+    },
+    "hpatchz": {
+      "sha256": "1fd99532fb4d20aa2f72b019d1c64f4f4f997ffafa3815d4d1fc42c5cba91cc0",
+      "size": 499664,
+      "mode": "0o755"
+    },
+    "libbrotlicommon.1.1.0.dylib": {
+      "sha256": "be87f097c6e75fd93b2138c09fde662fd082e787ed233d4a802bfaf78687ed4a",
+      "size": 185680,
+      "mode": "0o644"
+    },
+    "libbrotlidec.1.1.0.dylib": {
+      "sha256": "3de100981f20d720865b462f4ed22cdeee0f2be48c018811f292bda9ed85e2ff",
+      "size": 88512,
+      "mode": "0o644"
+    },
+    "libcrypto.3.dylib": {
+      "sha256": "27549818c18aeaa5c1c2b5e64738fb1b31d1a08260acfd81111c36ed5c902142",
+      "size": 6131248,
+      "mode": "0o644"
+    },
+    "libcurl.4.8.0.dylib": {
+      "sha256": "f8015a864da070b3f2811d1e38494db555938f83799fb880e4bdba617450b68e",
+      "size": 866352,
+      "mode": "0o644"
+    },
+    "libnghttp2.14.28.3.dylib": {
+      "sha256": "cc8bcb7118e68ad7e9e882eee18e348fa79b6afd7462cd7a959f7cbfcb7c2231",
+      "size": 240000,
+      "mode": "0o644"
+    },
+    "libpython3.13.dylib": {
+      "sha256": "ee3da76d2eadd0e0a7ff6b44250b88530c3fa38e9da2c5d677f61333cc1cf714",
+      "size": 17920528,
+      "mode": "0o644"
+    },
+    "libssh2.1.0.1.dylib": {
+      "sha256": "648cbf132a8e131b8a7eba83d645ed5ee6224c9395bd2dc3ff7f90fa57c1cb28",
+      "size": 302912,
+      "mode": "0o644"
+    },
+    "libssl.3.dylib": {
+      "sha256": "9f2348e4ee6e2f4a3d3ec7906bb2b520dd30b7118a7251dfd63741a5b9d948a0",
+      "size": 1188016,
+      "mode": "0o644"
+    },
+    "libz.1.3.1.dylib": {
+      "sha256": "b75f0e1a5357a7783871a90291c3c3466f51e712b5a7884e2905a8bf2e8a1b34",
+      "size": 141968,
+      "mode": "0o644"
+    },
+    "psutil/_psutil_osx.so": {
+      "sha256": "7a51a0869d940c0331a7854ab1af8695fbd791166de1c80ba22d7d0831425b35",
+      "size": 84704,
+      "mode": "0o644"
+    },
+    "psutil/_psutil_posix.so": {
+      "sha256": "e702d20b377c3d2ead61ff21691bde10bd41ba3b361d3339b2ae6e490de68323",
+      "size": 57392,
+      "mode": "0o644"
+    },
+    "pycurl.so": {
+      "sha256": "77703b4cf2eba2076dee7f6b9294a742eab20528e07a3f794e0fb2591aa97e3b",
+      "size": 208240,
+      "mode": "0o644"
+    },
+    "pydantic_core/_pydantic_core.so": {
+      "sha256": "4628ca9fec3ad8af044b32df14228fda14db39fdffc3a74835c9dfc92fb6880f",
+      "size": 4857072,
+      "mode": "0o644"
+    },
+    "sophon-server": {
+      "sha256": "329958a1d208da65f3cb60f54a77a7b1e1328824fac262a59cd9ed52d39ca499",
+      "size": 42860848,
+      "mode": "0o755"
+    },
+    "websockets/speedups.so": {
+      "sha256": "59cf449ebb29bba6ed4c27399f118c45c4ef56a301999d9237a4ef18d749d28e",
+      "size": 28208,
+      "mode": "0o644"
+    },
+    "zstandard/_cffi.so": {
+      "sha256": "3583a375c5521c5b7dac97578c59bf1d946bc0fb048f568063d1964f9a9c953c",
+      "size": 1030096,
+      "mode": "0o644"
+    },
+    "zstandard/backend_c.so": {
+      "sha256": "1c0b628814dc9d124c6919f5970932d1da1bd574ad94f6760edf8c1f2f63e170",
+      "size": 929104,
+      "mode": "0o644"
+    }
+  },
+  "reproducibility_limit": "Pins inspected build inputs and gameplay-tested payload identities. Recompilation, especially native Python/Nuitka output, is not asserted byte-reproducible; archive the exact tested payloads."
+}

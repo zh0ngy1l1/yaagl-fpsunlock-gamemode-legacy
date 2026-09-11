@@ -1,0 +1,34 @@
+{
+  "inputs": [
+    {
+      "path": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-implementation/runtime/ntdll-virtual-wine11.c",
+      "sha256": "cc09fcaf2f5234eedf68ba068ffa6f7b586bca2753ce98bc0887d11002913419"
+    },
+    {
+      "path": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/binary-audit/v2-staged-package/vendor/0001-ntdll-CW-HACK-18947.patch",
+      "sha256": "41277c5b18fffcd7aa71a33c5f6ba33d2c91f262dc7b1f5855b8951a563d464c"
+    },
+    {
+      "path": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/binary-audit/v2-staged-package/0001-ntdll-use-current-protection-for-rosetta-toggle.patch",
+      "sha256": "88dd45f99c6438db828688239286192b1405c90f22d03ef5c54b62bb22c52458"
+    }
+  ],
+  "correction_references": 3,
+  "applications": [
+    {
+      "patch": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/binary-audit/v2-staged-package/vendor/0001-ntdll-CW-HACK-18947.patch",
+      "exit_code": 0,
+      "stdout": "patching file 'dlls/ntdll/unix/virtual.c'\n",
+      "stderr": ""
+    },
+    {
+      "patch": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-deployment-review/binary-audit/v2-staged-package/0001-ntdll-use-current-protection-for-rosetta-toggle.patch",
+      "exit_code": 0,
+      "stdout": "patching file 'dlls/ntdll/unix/virtual.c'\n",
+      "stderr": ""
+    }
+  ],
+  "corrected_source_sha256": "ee3feb8b45f94076f3502e79d0e2fa5112214a1adc2b7110c47b8397eb72b8df",
+  "input_bytes_unchanged": true,
+  "all_checks_passed": true
+}

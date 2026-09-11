@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import { FormControl, FormLabel, Box, Checkbox } from "@hope-ui/solid";
 import { createEffect, createSignal } from "solid-js";
 import { Locale } from "@locale";
@@ -20,7 +21,7 @@ export async function createRetinaConfig({
   try {
     config.retina = (await getKey("config_retina")) == "true";
   } catch {
-    config.retina = false; // default value
+    config.retina = SETTING_DEFAULTS.config_retina;
   }
 
   const [value, setValue] = createSignal(config.retina);

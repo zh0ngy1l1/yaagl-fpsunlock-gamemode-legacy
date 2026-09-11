@@ -1,11 +1,10 @@
-# Redesigned YAAGL with updated launcher featuring all 3 games in one launcher, as well as 120fps unlock for all of them
+# Genshin-only Yaagl with upstream presentation
 
-# Yet another anime game launcher (Yaagl)
+This branch keeps Genshin's regional/distribution options and restores the compact upstream UI. HSR/ZZZ launcher and Sophon support have been removed. The numeric FPS control and tested target-150 launch behavior remain.
 
-## Current Supported Game Version:
-### GI: 5.3.0+ OS/CN **
-### HSR: 4.3.0 OS/CN
-### ZZZ: 3.0.0 OS/CN
+See the [local release and pinned build instructions](docs/releases/genshin-upstream-21f921d.md) for the exact tested source/resource/helper identities and validation limits. This is one successful one-minute gameplay run, not a claim of repeated reliability or equivalence to an older installed build.
+
+The historical project information below remains for context; its generic latest-release installation instructions do not preserve this custom build.
 
 #### **: Starting from release 0.3.12 using DXMT 0.74, you need to update to Sequoia or later. Sonoma is getting old and is lacking technical features to improve the translation.
 

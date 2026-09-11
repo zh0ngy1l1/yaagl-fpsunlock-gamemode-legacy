@@ -1,3 +1,4 @@
+import { SETTING_DEFAULTS } from "@config/defaults";
 import {
   FormControl,
   FormLabel,
@@ -68,7 +69,7 @@ async function createCustom({
   try {
     config.resolutionCustom = (await getKey(CONFIG_KEY_CUSTOM)) == "true";
   } catch {
-    config.resolutionCustom = false; // default value
+    config.resolutionCustom = SETTING_DEFAULTS.config_resolution_custom;
   }
 
   const [value, setValue] = createSignal(config.resolutionCustom);
@@ -115,7 +116,7 @@ async function createWidth({
   try {
     config.resolutionWidth = await getKey(CONFIG_KEY_WIDTH);
   } catch {
-    config.resolutionWidth = "1920"; // default value
+    config.resolutionWidth = SETTING_DEFAULTS.config_resolution_width;
   }
 
   const [value, setValue] = createSignal(config.resolutionWidth);
@@ -159,7 +160,7 @@ async function createHeight({
   try {
     config.resolutionHeight = await getKey(CONFIG_KEY_HEIGHT);
   } catch {
-    config.resolutionHeight = "1920"; // default value
+    config.resolutionHeight = SETTING_DEFAULTS.config_resolution_height;
   }
 
   const [value, setValue] = createSignal(config.resolutionHeight);

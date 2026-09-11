@@ -28,14 +28,20 @@ import { createMetalHUDConfig } from "./metal-hud";
 import { createGameInstallDirConfig } from "./game-install-dir";
 import { createRetinaConfig } from "./retina";
 import { createLeftCmdConfig } from "./left-cmd";
-import { createWineDistroConfig } from "./wine-distribution";
 import createLocaleConfig from "./ui-locale";
 import createFPSUnlock from "./fps-unlock";
 import { exec2, getKeyOrDefault, resolve, setKey } from "../utils";
-import { createSignal, JSXElement, Show } from "solid-js";
+import { children, createSignal, JSXElement, Show } from "solid-js";
 import createReShade from "./reshade";
 import { createProxyEnabledConfig } from "@config/proxy-enabled";
 import { createProxyHostConfig } from "@config/proxy-host";
+
+export type ConfigurationUIProps = {
+  onClose: (action: "check-integrity" | "close") => void;
+  gameSettings?: JSXElement;
+  wineSettings?: JSXElement;
+  settingsFooter?: JSXElement;
+};
 
 export async function createConfiguration({
   wine,
@@ -54,10 +60,6 @@ export async function createConfiguration({
   onCheckUpdate: () => void;
 }) {
   const config: Partial<Config> = {};
-  const [WD] = await createWineDistroConfig({
-    locale,
-    config,
-  });
   const [MH] = await createMetalHUDConfig({ locale, config });
   const [R] = await createRetinaConfig({ locale, config });
   const [LC] = await createLeftCmdConfig({ locale, config });
@@ -109,14 +111,20 @@ export async function createConfiguration({
   }
 
   return {
-    UI: function (props: {
-      onClose: (action: "check-integrity" | "close") => void;
-    }) {
+    UI: function (props: ConfigurationUIProps) {
+      const gameSettings = children(() => props.gameSettings);
+      const wineSettings = children(() => props.wineSettings);
+      const settingsFooter = children(() => props.settingsFooter);
       return (
-        <ModalContent height={570} width={1000} maxWidth={1000}>
+        <ModalContent
+          height={570}
+          maxHeight="calc(100vh - 120px)"
+          width={1000}
+          maxWidth="calc(100vw - 32px)"
+        >
           <ModalCloseButton />
           <ModalHeader>{locale.get("SETTING")}</ModalHeader>
-          <ModalBody pb={20}>
+          <ModalBody pb={settingsFooter() ? 8 : 20}>
             <Tabs orientation="vertical" h="100%">
               <TabList minW={120}>
                 <Tab>{locale.get("SETTING_GENERAL")}</Tab>
@@ -223,14 +231,26 @@ export async function createConfiguration({
                   </VStack>
                 </HStack>
               </TabPanel>
-              <TabPanel flex={1} pt={0} pb={0} h="100%">
-                <VStack spacing={"$4"} w="40%" alignItems="start">
+              <TabPanel flex={1} pt={0} pb={0} h="100%" overflowY="auto">
+                <VStack
+                  spacing={"$4"}
+                  w={gameSettings() ? "70%" : "40%"}
+                  alignItems="start"
+                >
+                  {gameSettings()}
+                  <Show when={gameSettings()}>
+                    <Divider />
+                  </Show>
                   <ChannelClientConfig />
                 </VStack>
               </TabPanel>
-              <TabPanel flex={1} pt={0} pb={0} h="100%">
-                <VStack spacing={"$4"} w="40%" alignItems="start">
-                  <WD />
+              <TabPanel flex={1} pt={0} pb={0} h="100%" overflowY="auto">
+                <VStack
+                  spacing={"$4"}
+                  w={wineSettings() ? "70%" : "40%"}
+                  alignItems="start"
+                >
+                  {wineSettings()}
                 </VStack>
               </TabPanel>
               <Show when={advanceSetting()}>
@@ -300,6 +320,7 @@ export async function createConfiguration({
               </TabPanel>
             </Tabs>
           </ModalBody>
+          {settingsFooter()}
         </ModalContent>
       );
     },
