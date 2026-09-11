@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "status": "isolated candidate; not installed or accepted in gameplay",
+  "change": "Rosetta write invalidation uses current page protection instead of allocation protection",
+  "frontend": {
+    "source_commit": "a0e8c704327e0d2568fbb4a0c569eee1f2188110",
+    "resources_sha256": "4724889a8f29703f491c6ae2b1b4ad03819ca63c2229eca1dd4cd52a2ec42b96",
+    "changed": false
+  },
+  "ordinary_companion": {
+    "tag": "v3.0.7",
+    "source_commit": "56b9c64381ef9fd59e916dc9bf547d3210ab5db1",
+    "sha256": "8543f45a4edced854ab8c5466ce2dc2e511fb4f89361bc4dfb474b68d998cc17",
+    "changed": false,
+    "requires_diagnostic_sidecar": false
+  },
+  "runtime": {
+    "selected_game": "genshin",
+    "tag": "11.0-dxmt-signed-with-patches",
+    "relative_file": "wine/lib/wine/x86_64-unix/ntdll.so",
+    "input_sha256": "f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b",
+    "signed_output_sha256": "702394b643e83a4e2cd55fb0e013a4bcff6e20db01265246cce234eebda08f3d",
+    "size": 620688,
+    "build_kind": "exact binary delta and ad-hoc signature, not full Wine rebuild"
+  },
+  "preserved": {
+    "default_target": 120,
+    "maximum_target": 360,
+    "distinct_high_targets": [
+      61,
+      360
+    ],
+    "disabled_starts_companion": false,
+    "enabled_1_through_60_starts_companion": true,
+    "manual_arming_required": false,
+    "saved_settings_changed": false,
+    "ownership_and_close_guards_changed": false,
+    "wine_wait_changed": false,
+    "prefix_selection_changed": false
+  },
+  "excluded_recovery_commit": "a2f6568",
+  "acceptance": {
+    "live_validation_done": false,
+    "suite": [
+      90,
+      120,
+      150,
+      180
+    ],
+    "status": "pending candidate and observation-profile review, then separate deployment/gameplay authorization",
+    "diagnostic_profile_caveat": "d23 journal/receipt profile differs from ordinary release startup; do not relabel it production acceptance"
+  },
+  "independent_review": {
+    "sha256": "97fe03dc42059f1465714316607908593af0e68c4899ce88795926b57105b520",
+    "verdict": "no blocking defect in narrow implementation; historical causality and gameplay reliability unproved"
+  }
+}

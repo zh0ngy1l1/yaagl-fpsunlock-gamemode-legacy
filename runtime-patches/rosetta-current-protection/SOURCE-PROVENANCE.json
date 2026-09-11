@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "scope": "Source provenance and exact installed-runtime binary-delta equivalence; no claim of a complete reproducible Wine build.",
+  "pristine_source": {
+    "project": "wine-mirror/wine",
+    "ref": "wine-11.0",
+    "path": "dlls/ntdll/unix/virtual.c",
+    "url": "https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/dlls/ntdll/unix/virtual.c",
+    "sha256": "cc09fcaf2f5234eedf68ba068ffa6f7b586bca2753ce98bc0887d11002913419"
+  },
+  "downstream_overlay": {
+    "repository": "https://github.com/riverfog7/macports-wine",
+    "commit": "0bf32337c0c2d2a699fc392f5db570cf42ca0f27",
+    "path": "emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.patch",
+    "git_blob": "c60b4e67c85dd5fbb9c1055af8e278104822d96c",
+    "sha256": "41277c5b18fffcd7aa71a33c5f6ba33d2c91f262dc7b1f5855b8951a563d464c",
+    "url": "https://raw.githubusercontent.com/riverfog7/macports-wine/0bf32337c0c2d2a699fc392f5db570cf42ca0f27/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.patch"
+  },
+  "release_era_reinforcement": {
+    "repository": "https://github.com/riverfog7/macports-wine",
+    "commit": "098941d867f8793f559035e298ceb69a8e69f1f3",
+    "path": "emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.diff",
+    "git_blob": "4d85401911517cb92b524211098c2402bdb768f0",
+    "sha256": "88f712b430fbf7d29f581f063772b97585cf9c4319787c8c3129434c2fd103de",
+    "url": "https://raw.githubusercontent.com/riverfog7/macports-wine/098941d867f8793f559035e298ceb69a8e69f1f3/emulators/wine-devel/files/0001-ntdll-CW-HACK-18947.diff",
+    "all_added_lines_byte_identical_to_january_overlay": true,
+    "added_lines_sha256": "99a304e37d4e8af39f46bdd339cea47ebe592497a3e91e0734bf778326576016"
+  },
+  "correction": {
+    "file": "0001-ntdll-use-current-protection-for-rosetta-toggle.patch",
+    "sha256": "f901749a1fc93bbe9d44f4cafc8178f5e8e1f84ab67366a015fa71f19d7819bb",
+    "source_change": "Both info.AllocationProtect references in toggle_executable_pages_for_rosetta become info.Protect.",
+    "behavior_scope": "The decision and intermediate protection use current page protection. Current non-executable pages skip the helper even if allocation protection was executable. Current executable pages follow the helper even if allocation protection was non-executable; this is an intentional selection change in both directions."
+  },
+  "application_check": {
+    "script": "check_source_patch.py",
+    "result": "SOURCE-APPLICATION-REPRO.json",
+    "result_sha256": "8c1477e8b4ba768e7e9b01cebf06e08f1bdc6dae284aa67675b5e64f3d0bc2ee",
+    "all_checks_passed": true,
+    "overlay_fuzz": 0,
+    "correction_fuzz": 0,
+    "pristine_plus_overlay_sha256": "f3511868a91f4c2e62bb52f432f5aab0e3526085a35fcea3eedb44ac5a6e8a2f",
+    "corrected_source_sha256": "e8ea8f4d6f255f658be38e6656e2e1924ccbd042e40d469b4133261506f265b0",
+    "original_application_also_reverse_dry_run_passed": true
+  },
+  "exact_binary": {
+    "input_sha256": "f26ade35f5b49e33b3780b6adc71f9eb9c831ea40222c1bae667ac14135d984b",
+    "architecture": "Mach-O x86_64",
+    "instruction_address": "0x66c6d",
+    "changed_file_offset": "0x66c6f",
+    "old_instruction_hex": "8b8d20ffffff",
+    "new_instruction_hex": "8b8d34ffffff",
+    "rationale": "The query buffer is rbp-0xf0. The original load at rbp-0xe0 reads MEMORY_BASIC_INFORMATION.AllocationProtect +0x10; the corrected rbp-0xcc load reads Protect +0x24. The two source references are folded into one loaded register.",
+    "unsigned_sha256": "a7da31b9ac6f65b905d76b0d4cd5b7f0fb578337ebb5f8601c99018ec7a84bf7",
+    "signed_sha256": "702394b643e83a4e2cd55fb0e013a4bcff6e20db01265246cce234eebda08f3d",
+    "manifest": "/Users/david/Library/Application Support/YAAGL Local Builds/genshin-fps360-20260909/universal-automatic-implementation/artifacts/runtime-delta/manifest.json"
+  },
+  "limitations": [
+    "This is an exact binary delta and source correction, not a full Wine source rebuild.",
+    "No runtime execution, installation, activation, or gameplay validation occurred.",
+    "The field-selection defect is concrete; retrospective crash causality and gameplay effect remain unverified."
+  ]
+}
