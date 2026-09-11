@@ -10,9 +10,9 @@ import sys
 
 PRISTINE = 'cc09fcaf2f5234eedf68ba068ffa6f7b586bca2753ce98bc0887d11002913419'
 OVERLAY = '41277c5b18fffcd7aa71a33c5f6ba33d2c91f262dc7b1f5855b8951a563d464c'
-CORRECTION = 'f901749a1fc93bbe9d44f4cafc8178f5e8e1f84ab67366a015fa71f19d7819bb'
+CORRECTION = '88dd45f99c6438db828688239286192b1405c90f22d03ef5c54b62bb22c52458'
 WITH_OVERLAY = 'f3511868a91f4c2e62bb52f432f5aab0e3526085a35fcea3eedb44ac5a6e8a2f'
-CORRECTED = 'e8ea8f4d6f255f658be38e6656e2e1924ccbd042e40d469b4133261506f265b0'
+CORRECTED = 'ee3feb8b45f94076f3502e79d0e2fa5112214a1adc2b7110c47b8397eb72b8df'
 
 
 def sha(data):
@@ -58,13 +58,13 @@ def main():
         begin = text.index('static void toggle_executable_pages_for_rosetta(')
         end = text.index('\n}\n', begin) + 3
         helper = text[begin:end]
-        if helper.count('info.Protect') != 2 or 'AllocationProtect' in helper:
+        if helper.count('info.Protect') != 3 or 'AllocationProtect' in helper:
             raise ValueError('Corrected helper references mismatch')
         for path, data in snapshots.items():
             if path.read_bytes() != data:
                 raise ValueError('Source input changed during check')
         result = dict(inputs=[dict(path=str(p), sha256=sha(data)) for p, data in snapshots.items()],
-                      correction_references=2, applications=records,
+                      correction_references=3, applications=records,
                       corrected_source_sha256=sha(target.read_bytes()),
                       input_bytes_unchanged=True, all_checks_passed=True)
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
