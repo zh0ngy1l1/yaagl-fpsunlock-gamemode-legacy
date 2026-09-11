@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise exact V2 byte-admission failures in memory; no copy/sign/load/install."""
+"""Exercise V2 byte admission using declared offline input; no copy/sign/load/install."""
 import argparse
 import hashlib
 import importlib.util
@@ -14,11 +14,15 @@ def need(ok,message):
     if not ok:raise ValueError(message)
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--builder',type=Path,required=True)
-    p.add_argument('--input-runtime',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    p.add_argument('--staging-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     need(not a.output.exists() and not a.output.is_symlink(),'Output must be new')
-    original=a.input_runtime.read_bytes();builder_data=a.builder.read_bytes();need(sha(original)==INPUT,'Wrong input runtime')
+    builder_data=a.builder.read_bytes()
     spec=importlib.util.spec_from_file_location('v2_mutation_builder',a.builder);b=importlib.util.module_from_spec(spec)
     sys.modules[spec.name]=b;spec.loader.exec_module(b)
+    # Reuse the production builder's copied-input admission. This call creates
+    # nothing; the unused destination must be fresh just as for a real build.
+    input_path,unused_output,staging=b.destination(a.staging_root,'mutation-admission-only')
+    original,input_stat=b.read_stable_input(input_path);need(sha(original)==INPUT,'Wrong input runtime')
     unsigned,image,metadata=b.prepare_bytes(original)
     need(sha(unsigned)==UNSIGNED,'V2 baseline unsigned hash')
     cases=[('wrong_load_offset','INSTRUCTION_ADDRESS',b.INSTRUCTION_ADDRESS+1),
@@ -33,8 +37,11 @@ def main():
         except b.BuildError as error:outcomes.append({'mutation':name,'detected':True,'reason':str(error)})
         else:raise ValueError('Invalid binary mutation admitted: '+name)
         finally:setattr(b,attribute,before)
-    need(a.input_runtime.read_bytes()==original and a.builder.read_bytes()==builder_data,'Input changed')
+    final_input,final_stat=b.read_stable_input(input_path)
+    need(final_input==original and final_stat==input_stat and a.builder.read_bytes()==builder_data,'Input changed')
+    need(not unused_output.exists(),'Mutation check unexpectedly created runtime output')
     result={'builder':str(a.builder.resolve()),'builder_sha256':sha(builder_data),'input_sha256':INPUT,
+            'copied_input_path':str(input_path),'staging':staging,
             'baseline_unsigned_sha256':UNSIGNED,'baseline_changed_ranges':metadata['unsigned_changed_ranges'],
             'mutations':outcomes,'input_bytes_unchanged':True,'runtime_output_created':False,
             'codesign_invoked':False,'runtime_loaded':False,'wine_executed':False}

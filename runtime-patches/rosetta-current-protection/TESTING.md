@@ -32,9 +32,16 @@ Six compiled helper mutations are rejected: allocation-based predicate, skipped 
 ```sh
 python3 -B test_v2_binary_mutations.py \
   --builder ./build_runtime_delta.py \
-  --input-runtime "$FPS_EVIDENCE_ROOT/universal-automatic-deployment-review/artifacts/input/ntdll.so" \
+  --staging-root "$FPS_EVIDENCE_ROOT/universal-automatic-deployment-review/artifacts" \
   --output /absolute/path/to/new-binary-mutations.json
 ```
+
+The mutation checker now uses the builder's declared-root and copied-input
+admission, without creating its unused destination. Its earlier audit invocation
+read the installed library directly before testing only in-memory bytes; no
+output, signing, loading or installation occurred. That procedural deviation is
+recorded in the review package. Arbitrary `--input-runtime` paths are no longer
+accepted, and the final five mutations were checked using the staging copy.
 
 The historical replay still verifies four trace hashes and supplies all ten recorded successful writes/page samples to the original and V2 helpers. Their original survival/crash and interval verdicts remain unchanged. Separate preserved checks validate all 3,181 recorded read operations and 7,420 query records for identity and ordering, including the failed automatic run's final incomplete read. Metadata consistency and write-input replay do not execute the diagnostic gates, reconstruct fault-time protection, or establish historical crash causality.
 
