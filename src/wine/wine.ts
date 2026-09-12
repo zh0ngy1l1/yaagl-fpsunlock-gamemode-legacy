@@ -1,4 +1,8 @@
 import {
+  ensureNativeFullscreenEngine,
+  nativeFullscreenEnvironment,
+} from "./native-fullscreen";
+import {
   exec as unixExec,
   exec2 as unixExec2,
   getKey,
@@ -31,13 +35,14 @@ export async function createWine(options: {
     env?: { [key: string]: string },
     log_file: string | undefined = undefined
   ) {
+    await ensureNativeFullscreenEngine(resolve("./wine"), options.distro.id);
     return await unixExec(
       program == "copy"
         ? [loaderBin, "cmd", "/c", program, ...args]
         : [loaderBin, program, ...args],
       {
         ...getEnvironmentVariables(),
-        ...(env ?? {}),
+        ...nativeFullscreenEnvironment(options.distro.id, env),
       },
       false,
       log_file
@@ -50,13 +55,14 @@ export async function createWine(options: {
     env?: { [key: string]: string },
     log_file: string | undefined = undefined
   ) {
+    await ensureNativeFullscreenEngine(resolve("./wine"), options.distro.id);
     return await unixExec2(
       program == "copy"
         ? [loaderBin, "cmd", "/c", program, ...args]
         : [loaderBin, program, ...args],
       {
         ...getEnvironmentVariables(),
-        ...(env ?? {}),
+        ...nativeFullscreenEnvironment(options.distro.id, env),
       },
       false,
       log_file
@@ -79,6 +85,7 @@ export async function createWine(options: {
     return {
       WINEDEBUG: "fixme-all,err-unwind,+timestamp",
       WINEPREFIX: options.prefix,
+      YAAGL_NATIVE_FULLSCREEN: "0",
     };
   }
 
@@ -167,6 +174,7 @@ reg add "HKEY_LOCAL_MACHINE\\SOFTWARE\\NVIDIA Corporation\\Global\\NGXCore" /v F
     setNVExtension,
     attributes: {
       ...options.distro.attributes,
+      distributionId: options.distro.id,
     },
   };
 }

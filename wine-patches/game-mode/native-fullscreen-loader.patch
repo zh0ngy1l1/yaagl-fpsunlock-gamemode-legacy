@@ -1,0 +1,59 @@
+diff --git a/loader/main.c b/loader/main.c
+index cd153e5..1ea9662 100644
+--- a/loader/main.c
++++ b/loader/main.c
+@@ -21,6 +21,7 @@
+ #include "config.h"
+
+ #include <fcntl.h>
++#include <errno.h>
+ #include <pthread.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -169,6 +170,36 @@ static void *try_dlopen( const char *argv0 )
+     return handle;
+ }
+
++#ifdef __APPLE__
++/* The signed targets are installed together. Selection happens before ntdll
++ * initializes the Windows process, preserving argv and inherited server state. */
++static void select_game_bundle( char **argv )
++{
++    const char *enabled = getenv( "YAAGL_NATIVE_FULLSCREEN" );
++    const char *self;
++    char *dir, *parent, *target;
++
++    if (!enabled || strcmp( enabled, "1" )) return;
++    if (!(self = get_self_exe()) || !(dir = realpath_dirname( self )))
++    {
++        fprintf( stderr, "wine: cannot locate native fullscreen loader\n" );
++        exit(1);
++    }
++    free( (void *)self );
++    if ((parent = remove_tail( dir, "/WineGame.app/Contents/MacOS" )))
++    {
++        free( parent );
++        free( dir );
++        return;  /* Already executing the bundled target. */
++    }
++    target = build_path( dir, "WineGame.app/Contents/MacOS/wine" );
++    free( dir );
++    execv( target, argv );
++    fprintf( stderr, "wine: cannot exec native fullscreen loader %s: %s\n", target, strerror(errno) );
++    exit(1);
++}
++#endif
++
+
+ /**********************************************************************
+  *           main
+@@ -177,6 +208,9 @@ int main( int argc, char *argv[] )
+ {
+     void *handle;
+
++#ifdef __APPLE__
++    select_game_bundle( argv );
++#endif
+     init_reserved_areas();
+
+     if ((handle = try_dlopen( get_self_exe() )) ||

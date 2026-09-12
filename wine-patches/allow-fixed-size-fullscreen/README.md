@@ -1,3 +1,8 @@
+> The user-facing control is now **Settings → General → Native Fullscreen**
+> (Off by default), supporting only **Wine 11.0 DXMT (signed, with patches)**.
+> See [the production toggle](../game-mode/native-fullscreen-toggle.md). The
+> manual registry/build instructions below document the original Wine opt-in.
+
 # Wine 11.0: opt-in native fullscreen for fixed-size windows
 
 This patch lets ordinary fixed-size top-level Wine windows use Cocoa native

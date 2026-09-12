@@ -1,3 +1,7 @@
+import {
+  ensureNativeFullscreenEngine,
+  nativeFullscreenEnvironment,
+} from "../wine/native-fullscreen";
 import type { CommonUpdateProgram } from "@common-update-ui";
 import {
   build,
@@ -663,12 +667,14 @@ export async function createWineFromRoot({
   renderer?: HoyoplayRenderer;
   d3dmetalPath?: string;
 }): Promise<Awaited<Wine>> {
+  await ensureNativeFullscreenEngine(wineRoot, distro.id);
   const loaderBin = await getCorrectWineBinary(wineRoot);
 
   function getEnvironmentVariables() {
     return {
       WINEDEBUG: "fixme-all,err-unwind,+timestamp",
       WINEPREFIX: prefix,
+      YAAGL_NATIVE_FULLSCREEN: "0",
     };
   }
 
@@ -690,7 +696,7 @@ export async function createWineFromRoot({
         : [loaderBin, program, ...args],
       {
         ...getEnvironmentVariables(),
-        ...(env ?? {}),
+        ...nativeFullscreenEnvironment(distro.id, env),
       },
       false,
       log_file
@@ -722,7 +728,7 @@ export async function createWineFromRoot({
       withD3DMetalTaskPolicy(command),
       {
         ...getEnvironmentVariables(),
-        ...(env ?? {}),
+        ...nativeFullscreenEnvironment(distro.id, env),
       },
       false,
       log_file
@@ -827,6 +833,7 @@ reg add "HKEY_LOCAL_MACHINE\\SOFTWARE\\NVIDIA Corporation\\Global\\NGXCore" /v F
     setNVExtension,
     attributes: {
       ...distro.attributes,
+      distributionId: distro.id,
       renderBackend:
         renderer === HOYOPLAY_RENDERER_DXMT
           ? distro.attributes.renderBackend
@@ -856,8 +863,14 @@ export async function* ensureHoyoplayGameWine({
   if (!distro) throw new Error(`Unknown Wine distribution: ${wineTag}`);
 
   const wineRoot = gameWineRoot(gameId, distro);
+  let installed = false;
   try {
     await stats(join(wineRoot, "bin", "wine"));
+    installed = true;
+  } catch {
+    // Download only an absent engine.
+  }
+  if (installed) {
     return await createWineFromRoot({
       prefix: baseWine.prefix,
       distro,
@@ -865,8 +878,6 @@ export async function* ensureHoyoplayGameWine({
       renderer,
       d3dmetalPath,
     });
-  } catch {
-    // Download below.
   }
 
   yield ["setStateText", "DOWNLOADING_ENVIRONMENT"];

@@ -1,0 +1,16 @@
+{
+  "distribution": "11.0-dxmt-signed-with-patches",
+  "wineSourceHead": "dabf5e83e53e8379aa1146744c110f53b070f6d4",
+  "loaderSourceSHA256": "c9165c841489634af404174b961058fcfe5f58f18e44873eb4ee1191ae06208f",
+  "fullscreenBaseline": "bc9a0e81d168c99bb63ed716b0455245144aadc7",
+  "reproduction": "wine-patches/game-mode/build-support.py",
+  "files": {
+    "lib/wine/i386-windows/winemac.drv": "0457ac465975b60cb1df4f48958a3b23f883debb21db1095f35d0fc41902c363",
+    "lib/wine/x86_64-unix/WineGame.app/Contents/Info.plist": "4e55a8a53c8d68d8cd97c451ea770ef9dbc3e32668c3c9041ad420836b0bebd5",
+    "lib/wine/x86_64-unix/WineGame.app/Contents/MacOS/wine": "a9739dfa44f42472e322f8c602347e9badf90f5b881a8cb30e506463b7f49383",
+    "lib/wine/x86_64-unix/WineGame.app/Contents/_CodeSignature/CodeResources": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b",
+    "lib/wine/x86_64-unix/wine": "dde5b446b394408e82a76528a1176866d6c0ae6f0f2f82e365286b8f31b7554e",
+    "lib/wine/x86_64-unix/winemac.so": "4e1999a1d1fbd8d1e5e9d8c6b4d345b3cc86939557e435c9c0ee2bbb838b366b",
+    "lib/wine/x86_64-windows/winemac.drv": "ed652c647728cb6f41c6d11c459b87149c79040100f83ee35a296604ea4b1e1b"
+  }
+}

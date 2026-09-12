@@ -1,3 +1,21 @@
+# Native Fullscreen launcher setting
+
+The production control is **Settings → General → Native Fullscreen**, immediately
+above Metal HUD. It defaults to Off and currently supports only **Wine 11.0 DXMT
+(signed, with patches)**. Unsupported selections disable the checkbox. Changes
+apply on the next launch; they do not change files or the running game.
+
+See [the production toggle documentation](native-fullscreen-toggle.md) for ON/OFF
+routing, packaging, registry behavior, and validation. Normal users only use this
+checkbox; the manual commands below are historical developer experiments.
+
+## Historical manual Game Mode experiment (aac9594)
+
+The following records the initial always-bundled experiment. Its references to
+the current installation describe that earlier state. Its manual installer and
+rollback are not the production toggle, and their hash guards reject a newer
+production deployment. The original investigation evidence is retained.
+
 # Wine 11.0 Game Mode on macOS Tahoe
 
 Genshin now activates macOS Game Mode through the existing YAAGL Launch Game

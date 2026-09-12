@@ -1,3 +1,4 @@
+import { prepareNativeFullscreen } from "../../../wine/native-fullscreen";
 import { join } from "path-browserify";
 import { CommonUpdateProgram } from "@common-update-ui";
 import { Server } from "../server";
@@ -36,6 +37,11 @@ export async function* launchGameProgram({
   yield ["setUndeterminedProgress"];
   yield ["setStateText", "PATCHING"];
 
+  const fullscreenEnv = await prepareNativeFullscreen(
+    wine,
+    config.nativeFullscreen,
+    gameExecutable
+  );
   await wine.setProps(config);
 
   const cmd = `@echo off
@@ -55,6 +61,7 @@ cd /d "${wine.toWinePath(gameDir)}"
       "cmd",
       ["/c", `${wine.toWinePath(resolve("./config.bat"))}`],
       {
+        ...fullscreenEnv,
         MTL_HUD_ENABLED: config.metalHud ? "1" : "",
         MVK_ALLOW_METAL_FENCES: "1",
         WINEDLLOVERRIDES: "d3d11,dxgi=n,b",

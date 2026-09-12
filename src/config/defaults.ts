@@ -1,6 +1,7 @@
 // Missing preferences use these values without writing them to storage.
 // Existing values (including false) retain their canonical keys and types.
 export const SETTING_DEFAULTS = {
+  config_nativeFullscreen: false,
   config_metalHud: true,
   config_retina: false,
   left_cmd: false,

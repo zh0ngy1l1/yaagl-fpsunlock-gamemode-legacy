@@ -25,6 +25,8 @@ import { Locale } from "../locale";
 import { Wine } from "../wine";
 import { Config } from "./config-def";
 import { createMetalHUDConfig } from "./metal-hud";
+import { createNativeFullscreenConfig } from "./native-fullscreen";
+import { NATIVE_FULLSCREEN_DISTRO } from "../wine/native-fullscreen";
 import { createGameInstallDirConfig } from "./game-install-dir";
 import { createRetinaConfig } from "./retina";
 import { createLeftCmdConfig } from "./left-cmd";
@@ -49,6 +51,7 @@ export async function createConfiguration({
   gameInstallDir,
   configForChannelClient,
   onCheckUpdate,
+  wineDistribution,
 }: {
   wine: Wine;
   locale: Locale;
@@ -58,8 +61,15 @@ export async function createConfiguration({
     config: Partial<Config>
   ) => Promise<() => JSXElement>;
   onCheckUpdate: () => void;
+  wineDistribution?: () => string;
 }) {
   const config: Partial<Config> = {};
+  const NF = await createNativeFullscreenConfig({
+    config,
+    supported: () =>
+      (wineDistribution?.() ?? wine.attributes.distributionId) ===
+      NATIVE_FULLSCREEN_DISTRO,
+  });
   const [MH] = await createMetalHUDConfig({ locale, config });
   const [R] = await createRetinaConfig({ locale, config });
   const [LC] = await createLeftCmdConfig({ locale, config });
@@ -146,6 +156,7 @@ export async function createConfiguration({
                     <VStack spacing={"$4"}>
                       <GID />
                       <Divider />
+                      <NF />
                       <MH />
                       <R />
                       <LC />

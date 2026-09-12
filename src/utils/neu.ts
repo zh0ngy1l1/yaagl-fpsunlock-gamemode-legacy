@@ -155,6 +155,7 @@ function shouldNamespaceStorageKey(key: string) {
     key == "config_advanced" ||
     key == "config_fps_unlock" ||
     key == "config_metalHud" ||
+    key == "config_nativeFullscreen" ||
     key == "config_proxyEnabled" ||
     key == "config_proxyHost" ||
     key == "config_retina" ||

@@ -1,3 +1,4 @@
+import { prepareNativeFullscreen } from "../../../wine/native-fullscreen";
 import { join } from "path-browserify";
 import { CommonUpdateProgram } from "../../../common-update-ui";
 import { Server } from "../../../constants";
@@ -103,6 +104,11 @@ export async function* launchGameProgram({
   yield ["setUndeterminedProgress"];
   yield ["setStateText", "PATCHING"];
 
+  const fullscreenEnv = await prepareNativeFullscreen(
+    wine,
+    config.nativeFullscreen,
+    gameExecutable
+  );
   await wine.setProps(config);
   if (config.hk4eEnableHDR) {
     await applyHDRRegistry({ wine, server });
@@ -169,6 +175,7 @@ cd /d "${wine.toWinePath(gameDir)}"
         ? [wine.toWinePath(join(gameDir, gameExecutable))]
         : ["/c", `${wine.toWinePath(resolve("./config.bat"))} `],
       {
+        ...fullscreenEnv,
         MTL_HUD_ENABLED: config.metalHud ? "1" : "",
         WINEDLLOVERRIDES: "",
         WINE_ENABLE_TIMEOUT_FIX: config.timeoutFix ? "1" : "0",

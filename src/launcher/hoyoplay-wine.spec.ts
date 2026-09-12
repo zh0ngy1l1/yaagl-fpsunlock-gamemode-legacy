@@ -40,6 +40,11 @@ vi.mock("@wine", () => ({
   ],
 }));
 vi.mock("../wine/cert", () => ({ addCertsToWine: vi.fn() }));
+vi.mock("../wine/native-fullscreen-assets", () => ({
+  NATIVE_FULLSCREEN_PAYLOAD_CHECKSUM: "test payload",
+  nativeFullscreenSupportDirectory: async () =>
+    "/isolated/sidecar/native-fullscreen",
+}));
 vi.mock("../downloadable-resource", () => ({ DXMT_FILES: [] }));
 
 const preferences = new Map<string, string>();
@@ -237,6 +242,7 @@ describe("Genshin Wine fallback and inherited runtime compatibility", () => {
         WINEDEBUG: "fixme-all,err-unwind,+timestamp",
         WINEPREFIX: baseWine.prefix,
         KEPT: "yes",
+        YAAGL_NATIVE_FULLSCREEN: "0",
       },
       false,
       undefined
@@ -255,6 +261,20 @@ describe("Genshin Wine fallback and inherited runtime compatibility", () => {
       value: ["setStateText", "DOWNLOADING_ENVIRONMENT"],
     });
     expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("propagates support installation failure without downloading over an installed engine", async () => {
+    vi.mocked(stats).mockResolvedValue({} as Awaited<ReturnType<typeof stats>>);
+    vi.mocked(exec).mockRejectedValueOnce(new Error("Wine engine is active"));
+    const program = ensureHoyoplayGameWine({
+      aria2,
+      baseWine,
+      gameId: "genshin",
+      wineTag: DEFAULT_WINE_DISTRIBUTION,
+    });
+    await expect(program.next()).rejects.toThrow("Wine engine is active");
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(setKey).not.toHaveBeenCalled();
   });
 });
 

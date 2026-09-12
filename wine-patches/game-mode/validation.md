@@ -1,3 +1,13 @@
+> This report preserves the initial Game Mode experiment and its evidence.
+> The final launcher-controlled feature and new validation are documented in
+> [native-fullscreen-toggle.md](native-fullscreen-toggle.md).
+
+Production toggle validation: the user confirmed repeated On/Off testing (more
+than twice per state, over four minutes total in each state), expected behavior,
+and no crashes or other apparent issues. Native Fullscreen with FPS Unlock also
+passed. See the production report for automated checks and cleanup; the original
+investigation below is preserved as historical evidence.
+
 # Game Mode investigation and validation
 
 Date: 2026-09-11. Host: macOS 26.6.2 (25G83), Apple Silicon M4, x86_64 Wine under

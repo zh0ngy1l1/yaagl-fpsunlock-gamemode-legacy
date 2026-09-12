@@ -178,11 +178,14 @@ export async function createHoyoplayLauncher({
     const client = await withStorageNamespace(spec.namespace, async () =>
       spec.createClient({ wine: gameWine, aria2, locale })
     );
+    const initialWineTag = await getHoyoplayGameWineTag(spec.id);
+    const [wineTag, setWineTag] = createSignal(initialWineTag);
     const { UI: ConfigurationUI, config } = await withStorageNamespace(
       spec.namespace,
       async () =>
         createConfiguration({
           wine: gameWine,
+          wineDistribution: wineTag,
           locale,
           gameInstallDir: client.installDir,
           configForChannelClient: client.createConfig,
@@ -192,8 +195,6 @@ export async function createHoyoplayLauncher({
     const fps = await getFpsConfig(spec.id);
     const [fpsEnabled, setFpsEnabled] = createSignal(fps.enabled);
     const [fpsTarget, setFpsTarget] = createSignal(String(fps.target));
-    const initialWineTag = await getHoyoplayGameWineTag(spec.id);
-    const [wineTag, setWineTag] = createSignal(initialWineTag);
     const initialRenderer = await getHoyoplayGameRenderer(spec.id);
     const [renderer, setRenderer] =
       createSignal<HoyoplayRenderer>(initialRenderer);
